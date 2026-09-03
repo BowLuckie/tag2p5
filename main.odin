@@ -7,20 +7,38 @@ import rl "vendor:raylib"
 GAME_WIDTH :: 1200
 GAME_HEIGHT :: 800
 
-MOVE_ACCEL :: 2000
-MAX_SPEED :: 300
-FRICTION :: 1400
-JUMP_VEL :: -500
+MOVE_ACCEL :: 3000
+MAX_SPEED :: 500
+FRICTION :: 0
+JUMP_VEL :: 550
 GRAVITY :: 1600
+
 
 Segment :: struct {
 	a, b: rl.Vector2,
 }
 
 arena_segments :: []Segment {
-	{a = {0, 400}, b = {200, 400}}, // flat floor
-	{a = {200, 400}, b = {350, 250}}, // slope up
-	{a = {350, 250}, b = {600, 250}}, // flat platform
+	//  outer walls enclosed room
+	{a = {0, 750}, b = {1200, 750}}, // floor
+	{a = {1200, 750}, b = {1200, 50}}, // right wall
+	{a = {1200, 50}, b = {0, 50}}, // ceiling
+	{a = {0, 50}, b = {0, 750}}, // left wall
+
+	// --- interior terrain (random flats & slopes) ---
+	{a = {100, 650}, b = {280, 650}}, // flat ledge, bottom-left
+	{a = {280, 650}, b = {420, 560}}, // slope up
+	{a = {420, 560}, b = {560, 560}}, // flat platform
+	{a = {650, 700}, b = {800, 620}}, // slope up from floor area
+	{a = {800, 620}, b = {950, 620}}, // flat platform
+	{a = {300, 400}, b = {450, 320}}, // mid-height slope
+	{a = {450, 320}, b = {620, 320}}, // flat platform
+	{a = {620, 320}, b = {780, 400}}, // slope back down
+	{a = {850, 350}, b = {1000, 350}}, // floating flat platform, upper right
+	{a = {150, 250}, b = {320, 180}}, // slope near ceiling
+	{a = {320, 180}, b = {480, 180}}, // flat near ceiling
+	{a = {700, 200}, b = {900, 150}}, // slope up-right near ceiling
+	{a = {900, 150}, b = {1050, 150}}, // flat near ceiling
 }
 
 project :: proc(p, a, b: rl.Vector2) -> rl.Vector2 {
@@ -53,12 +71,21 @@ resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: rl.Vec
 }
 
 Entity :: struct {
-	center: rl.Vector2,
-	vel:    rl.Vector2,
-	radius: f32,
+	center:            rl.Vector2,
+	vel:               rl.Vector2,
+	radius:            f32,
+	color:             rl.Color,
+	movement_callback: proc() -> f32,
 }
 
-get_move_dir :: proc() -> f32 {
+p1_movement :: proc() -> f32 {
+	dir: f32 = 0
+	if rl.IsKeyDown(.A) do dir -= 1
+	if rl.IsKeyDown(.D) do dir += 1
+	return dir
+}
+
+p2_movement :: proc() -> f32 {
 	dir: f32 = 0
 	if rl.IsKeyDown(.LEFT) do dir -= 1
 	if rl.IsKeyDown(.RIGHT) do dir += 1
@@ -66,7 +93,7 @@ get_move_dir :: proc() -> f32 {
 }
 
 update_entity :: proc(e: ^Entity, dt: f32) {
-	dir := get_move_dir()
+	dir := e.movement_callback()
 	e.vel.y += GRAVITY * dt
 
 	if dir != 0 {
@@ -85,13 +112,17 @@ update_entity :: proc(e: ^Entity, dt: f32) {
 
 	e.center += e.vel * dt
 
+	if rl.IsKeyPressed(.UP) {
+		e.vel.y = -JUMP_VEL
+	}
+
 	for seg in arena_segments {
 		resolve_circ_seg(e, seg)
 	}
 }
 
 draw_entity :: proc(e: Entity) {
-	rl.DrawCircleV(e.center, e.radius, rl.BLUE)
+	rl.DrawCircleV(e.center, e.radius, e.color)
 }
 
 draw_seg :: proc(seg: Segment) {
@@ -104,13 +135,35 @@ draw_segs :: proc(segs: []Segment) {
 	}
 }
 
-p1 := Entity {
-	center = {300, 100},
-	vel    = 0,
-	radius = 30,
-}
 
 main :: proc() {
+	p1 := Entity {
+		center            = {300, 100},
+		vel               = 0,
+		radius            = 30,
+		color             = rl.BLUE,
+		movement_callback = p1_movement,
+	}
+
+	p2 := Entity {
+		center            = {100, 300},
+		vel               = 0,
+		radius            = 30,
+		color             = rl.RED,
+		movement_callback = p2_movement,
+	}
+
+	fmt.printf(
+		"w: %d h: %d move_accel: %d max_speed: %d  FRICTION: %d JUMP_VEL: %d GRAVITY: %d",
+		GAME_WIDTH,
+		GAME_HEIGHT,
+		MOVE_ACCEL,
+		MAX_SPEED,
+		FRICTION,
+		JUMP_VEL,
+		GRAVITY,
+	)
+
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
@@ -118,11 +171,13 @@ main :: proc() {
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 		update_entity(&p1, dt)
+		update_entity(&p2, dt)
 
 		rl.BeginTextureMode(target)
 		rl.ClearBackground(rl.WHITE)
 		draw_segs(arena_segments)
 		draw_entity(p1)
+		draw_entity(p2)
 		rl.EndTextureMode()
 
 		screen_w := f32(rl.GetScreenWidth())
