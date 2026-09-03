@@ -10,7 +10,7 @@ GAME_WIDTH :: 1200
 GAME_HEIGHT :: 800
 
 MIN_ZOOM :: 0.1
-MAX_ZOOM :: 2
+MAX_ZOOM :: CAM_PADDING
 CAM_PADDING :: 300
 CAM_FOLLOW_SPEED :: 8.0
 CAM_ZOOM_SPEED :: 6.0
@@ -21,7 +21,9 @@ DECAY_RATE :: 10
 GRAVITY :: 2000
 JUMP_VEL :: 600
 GROUND_SNAP_DIST :: 4
-COYOTE_TIME :: 0.12
+COYOTE_TIME :: 0.1
+
+TAG_IMMUNITY :: 1
 
 Segment :: struct {
 	a, b: rl.Vector2,
@@ -35,6 +37,7 @@ Entity :: struct {
 	color:             rl.Color,
 	grounded:          bool,
 	coyote_time:       f32,
+	tagged:            bool,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
 
@@ -53,7 +56,7 @@ p2_movement :: proc() -> (dir: f32, jump: bool) {
 }
 
 ai_callback :: proc() -> (dir: f32, jump: bool) {
-	dir = rand.choice([]f32{-1, 0, 1})
+	dir = f32(rand.uint32_max(5)) - 2
 	jump_c := rand.uint32_max(1000)
 	jump = jump_c > 998
 	return
@@ -129,6 +132,20 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 
 draw_entity :: proc(e: Entity) {
 	rl.DrawCircleV(e.center, e.radius, e.color)
+	if e.tagged {
+		gap: f32 = e.radius * 0.3
+		tri_height: f32 = e.radius * 0.8
+		tri_width: f32 = e.radius
+
+		base_y := e.center.y - e.radius - gap - tri_height
+		tip_y := base_y + tri_height
+
+		tip := rl.Vector2{e.center.x, tip_y}
+		left := rl.Vector2{e.center.x - tri_width / 2, base_y}
+		right := rl.Vector2{e.center.x + tri_width / 2, base_y}
+
+		rl.DrawTriangle(tip, right, left, e.color)
+	}
 }
 
 draw_seg :: proc(seg: Segment) {
@@ -173,10 +190,39 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: rl.Vector2, screen_w, screen_h, d
 	gc.cam.offset = {screen_w / 2, screen_h / 2}
 }
 
+entity_tagging :: proc(e1, e2: ^Entity) -> bool {
+	diff := e1.center - e2.center
+	dist := linalg.length(diff)
+	min_dist := e1.radius + e2.radius
+	return dist < min_dist
+}
+
+resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
+	game.last_tag -= dt
+	if game.last_tag > 0 {
+		return
+	}
+
+	for i in 0 ..< len(game.players) {
+		for j in i + 1 ..< len(game.players) {
+			if entity_tagging(&game.players[i], &game.players[j]) {
+				resolve_tag(&game.players[i], &game.players[j], game)
+				return
+			}
+		}
+	}
+}
+
+resolve_tag :: proc(e1, e2: ^Entity, game: ^Game) {
+	game.last_tag = TAG_IMMUNITY
+	e1.tagged, e2.tagged = e2.tagged, e1.tagged
+}
+
 Game :: struct {
 	gc:             GameCamera,
 	players:        []Entity,
 	arena_segments: []Segment,
+	last_tag:       f32,
 }
 
 arena_segments := []Segment {
@@ -206,6 +252,7 @@ create_test_game :: proc() -> Game {
 		radius            = 30,
 		color             = rl.BLUE,
 		movement_callback = p1_movement,
+		tagged            = true,
 	}
 
 	p2 := Entity {
@@ -214,6 +261,7 @@ create_test_game :: proc() -> Game {
 		radius            = 30,
 		color             = rl.RED,
 		movement_callback = ai_callback,
+		tagged            = false,
 	}
 
 	players := make([]Entity, 2)
@@ -232,6 +280,7 @@ create_test_game :: proc() -> Game {
 		gc             = gc,
 		players        = players,
 		arena_segments = arena_segments,
+		last_tag       = 0,
 	}
 
 	return game
@@ -242,7 +291,7 @@ main :: proc() {
 
 	fmt.printfln("w: %d h: %d", GAME_WIDTH, GAME_HEIGHT)
 
-	rl.SetConfigFlags({.FULLSCREEN_MODE, .WINDOW_RESIZABLE})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
@@ -252,6 +301,8 @@ main :: proc() {
 		for &player in game.players {
 			update_entity(game.arena_segments, &player, dt)
 		}
+
+		resolve_entity_tagging(&game, dt)
 
 		update_camera(
 			&game.gc,
