@@ -1,4 +1,4 @@
 default: 
     mkdir -p build
-    odin build . -out:build/main
+    odin build . -debug -out:build/main
     ./build/main
