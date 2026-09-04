@@ -26,13 +26,15 @@ COYOTE_TIME :: 0.1
 TAG_IMMUNITY :: 1
 GAME_TIME :: 1
 
+Vector2 :: rl.Vector2
+
 Segment :: struct {
-	a, b: rl.Vector2,
+	a, b: Vector2,
 }
 
 Entity :: struct {
-	center:            rl.Vector2,
-	vel:               rl.Vector2,
+	center:            Vector2,
+	vel:               Vector2,
 	radius:            f32,
 	color:             rl.Color,
 	grounded:          bool,
@@ -62,14 +64,14 @@ ai_callback :: proc() -> (dir: f32, jump: bool) {
 	return
 }
 
-project :: proc(p, a, b: rl.Vector2) -> rl.Vector2 {
+project :: proc(p, a, b: Vector2) -> Vector2 {
 	ab := b - a
 	t := linalg.dot(p - a, ab) / linalg.dot(ab, ab)
 	t = clamp(t, 0, 1)
 	return a + ab * t
 }
 
-resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: rl.Vector2) {
+resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
 	closest := project(e.center, seg.a, seg.b)
 	diff := e.center - closest
 	dist := linalg.length(diff)
@@ -140,9 +142,9 @@ draw_entity :: proc(e: Entity) {
 		base_y := e.center.y - e.radius - gap - tri_height
 		tip_y := base_y + tri_height
 
-		tip := rl.Vector2{e.center.x, tip_y}
-		left := rl.Vector2{e.center.x - tri_width / 2, base_y}
-		right := rl.Vector2{e.center.x + tri_width / 2, base_y}
+		tip := Vector2{e.center.x, tip_y}
+		left := Vector2{e.center.x - tri_width / 2, base_y}
+		right := Vector2{e.center.x + tri_width / 2, base_y}
 
 		rl.DrawTriangle(tip, right, left, e.color)
 	}
@@ -165,7 +167,7 @@ GameCamera :: struct {
 	padding:  f32,
 }
 
-update_camera :: proc(gc: ^GameCamera, p1, p2: rl.Vector2, screen_w, screen_h, dt: f32) {
+update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: f32) {
 	target := (p1 + p2) / 2
 
 	min_x := min(p1.x, p2.x) - CAM_PADDING
@@ -240,6 +242,14 @@ Game :: struct {
 	buttons:       []Button,
 }
 
+free_game :: proc(game: ^Game) {
+	delete(game.players)
+	for btn in game.buttons {
+		rl.UnloadTexture(btn.glyph)
+	}
+	delete(game.buttons)
+}
+
 Button :: struct {
 	rect:     rl.Rectangle,
 	glyph:    rl.Texture2D,
@@ -247,7 +257,7 @@ Button :: struct {
 	on_click: proc(game: ^Game),
 }
 
-is_button_clicked :: proc(button: Button, mouse_pos: rl.Vector2) -> bool {
+is_button_clicked :: proc(button: Button, mouse_pos: Vector2) -> bool {
 	return rl.CheckCollisionPointRec(mouse_pos, button.rect)
 }
 
@@ -271,9 +281,12 @@ arena_collide := []Segment {
 	{a = {900, 150}, b = {1050, 150}}, // flat near ceiling
 }
 
-button_tex := rl.LoadTexture("./static/tlaw.png")
 
 create_test_game :: proc() -> Game {
+	restart_tex := rl.LoadTexture("./static/restart.png")
+	play_tex := rl.LoadTexture("./static/play.png")
+	pause_tex := rl.LoadTexture("./static/pause.png")
+
 	p1 := Entity {
 		center            = {300, 100},
 		vel               = 0,
@@ -310,37 +323,56 @@ create_test_game :: proc() -> Game {
 		arena_collide = arena_collide,
 		last_tag      = 0,
 		game_time     = GAME_TIME,
-		play_state    = .Playing,
+		play_state    = .MainMenu,
 	}
 
-	buttons := make([]Button, 3, context.allocator)
+	buttons := make([]Button, 4, context.allocator)
 	buttons[0] = {
-		rect = {500, 300, 200, 60},
-		glyph = button_tex,
+		rect = {GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+		glyph = play_tex,
 		states = {.MainMenu},
 		on_click = proc(game: ^Game) {game.play_state = .Playing},
 	}
+
 	buttons[1] = {
-		rect = {500, 380, 200, 60},
-		glyph = button_tex,
-		states = {.GameOver},
+		rect     = {GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+		glyph    = restart_tex,
+		states   = {.GameOver},
+		on_click = restart_game,
+	}
+
+	buttons[2] = {
+		rect = {GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 64, 64},
+		glyph = pause_tex,
+		states = {.Playing},
+		on_click = proc(game: ^Game) {game.play_state = .Paused},
+	}
+
+	buttons[3] = {
+		rect = {GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+		glyph = play_tex,
+		states = {.Paused},
 		on_click = proc(game: ^Game) {game.play_state = .Playing},
 	}
-	buttons[2] = {
-		rect = {20, 20, 40, 40},
-		glyph = button_tex,
-		states = {.MainMenu, .Paused},
-		on_click = proc(game: ^Game) {fmt.printf("settings")},
-	}
+
 
 	game.buttons = buttons
 
 	return game
 }
 
+restart_game :: proc(game: ^Game) {
+	free_game(game)
+	game^ = create_test_game()
+	game.play_state = .Playing
+}
+
 update_game :: proc(game: ^Game, dt: f32) {
 	if rl.IsMouseButtonPressed(.LEFT) {
+		fmt.print(mouse_pos())
+		handle_click(game, mouse_pos())
 	}
+
 	if game.play_state != .Playing {return}
 	for &player in game.players {
 		update_entity(game.arena_collide, &player, dt)
@@ -364,6 +396,14 @@ update_game :: proc(game: ^Game, dt: f32) {
 	}
 }
 
+handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
+	for button in game.buttons {
+		if rl.CheckCollisionPointRec(mouse_pos, button.rect) && game.play_state in button.states {
+			button.on_click(game)
+		}
+	}
+}
+
 render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.BeginTextureMode(target)
 	rl.ClearBackground(rl.WHITE)
@@ -381,31 +421,13 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 
 	if game.play_state == .GameOver {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
-
-		text: cstring = "Game Over!"
-		font_size: i32 = 100
-		text_width := rl.MeasureText(text, font_size)
-
-		rl.DrawText(
-			text,
-			i32(GAME_WIDTH / 2) - text_width / 2,
-			i32(GAME_HEIGHT / 2) - font_size / 2,
-			font_size,
-			rl.BLACK,
-		)
+		draw_text("Game Over!", PosX = GAME_WIDTH / 2, PosY = GAME_HEIGHT / 2)
 	} else if game.play_state == .Paused {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
-		text: cstring = "Paused"
-		font_size: i32 = 100
-		text_width := rl.MeasureText(text, font_size)
-
-		rl.DrawText(
-			text,
-			i32(GAME_WIDTH / 2) - text_width / 2,
-			i32(GAME_HEIGHT / 2) - font_size / 2,
-			font_size,
-			rl.BLACK,
-		)
+		draw_text("Paused", PosX = GAME_WIDTH / 2, PosY = GAME_HEIGHT / 2)
+	} else if game.play_state == .MainMenu {
+		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.WHITE)
+		draw_text("Tag 2.5", PosX = GAME_WIDTH / 2, PosY = GAME_HEIGHT / 2)
 	}
 
 	draw_buttons(game)
@@ -413,14 +435,40 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.EndTextureMode()
 }
 
+draw_text :: proc(
+	text: cstring,
+	font_size: i32 = 100,
+	PosX, PosY: i32,
+	color: rl.Color = rl.BLACK,
+) {
+	text_width := rl.MeasureText(text, font_size)
+
+	rl.DrawText(text, PosX - text_width / 2, PosY - font_size / 2, font_size, color)
+
+}
+
 draw_buttons :: proc(game: ^Game) {
-	for button in game.buttons {
-		if game.play_state in button.states {
-			rl.DrawRectangleRec(button.rect, rl.ORANGE)
+	for btn in game.buttons {
+		if game.play_state in btn.states {
+			tex_w := f32(btn.glyph.width)
+			tex_h := f32(btn.glyph.height)
+
+			scale := min(btn.rect.width / tex_w, btn.rect.height / tex_h)
+			draw_w := tex_w * scale
+			draw_h := tex_h * scale
+
+			dest := rl.Rectangle {
+				btn.rect.x + (btn.rect.width - draw_w) / 2,
+				btn.rect.y + (btn.rect.height - draw_h) / 2,
+				draw_w,
+				draw_h,
+			}
+
+			src := rl.Rectangle{0, 0, tex_w, tex_h}
+			rl.DrawTexturePro(btn.glyph, src, dest, {0, 0}, 0, rl.WHITE)
 		}
 	}
 }
-
 
 declare_win :: proc(game: ^Game) {
 	for player in game.players {
@@ -452,13 +500,22 @@ draw_screen :: proc(target: rl.RenderTexture2D) {
 	rl.EndDrawing()
 }
 
+mouse_pos :: proc() -> Vector2 {
+	mouse := rl.GetMousePosition()
+	screen_w := f32(rl.GetScreenWidth())
+	screen_h := f32(rl.GetScreenHeight())
+	scale := min(screen_w / GAME_WIDTH, screen_h / GAME_HEIGHT)
+
+	offset_x := (screen_w - GAME_WIDTH * scale) / 2
+	offset_y := (screen_h - GAME_HEIGHT * scale) / 2
+
+	return Vector2{(mouse.x - offset_x) / scale, (mouse.y - offset_y) / scale}
+}
+
 main :: proc() {
-	game := create_test_game()
-
-	fmt.printfln("w: %d h: %d", GAME_WIDTH, GAME_HEIGHT)
-
 	rl.SetConfigFlags({.WINDOW_RESIZABLE})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
+	game := create_test_game()
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
 
