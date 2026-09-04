@@ -24,11 +24,11 @@ GROUND_SNAP_DIST :: 4
 COYOTE_TIME :: 0.1
 
 TAG_IMMUNITY :: 1
+GAME_TIME :: 1
 
 Segment :: struct {
 	a, b: rl.Vector2,
 }
-
 
 Entity :: struct {
 	center:            rl.Vector2,
@@ -218,14 +218,40 @@ resolve_tag :: proc(e1, e2: ^Entity, game: ^Game) {
 	e1.tagged, e2.tagged = e2.tagged, e1.tagged
 }
 
-Game :: struct {
-	gc:             GameCamera,
-	players:        []Entity,
-	arena_segments: []Segment,
-	last_tag:       f32,
+GameMode :: enum {
+	Normal,
 }
 
-arena_segments := []Segment {
+PlayState :: enum {
+	MainMenu,
+	Playing,
+	Paused,
+	GameOver,
+}
+
+Game :: struct {
+	gc:            GameCamera,
+	players:       []Entity,
+	arena_collide: []Segment,
+	last_tag:      f32,
+	mode:          GameMode,
+	game_time:     f32,
+	play_state:    PlayState,
+	buttons:       []Button,
+}
+
+Button :: struct {
+	rect:     rl.Rectangle,
+	glyph:    rl.Texture2D,
+	states:   bit_set[PlayState],
+	on_click: proc(game: ^Game),
+}
+
+is_button_clicked :: proc(button: Button, mouse_pos: rl.Vector2) -> bool {
+	return rl.CheckCollisionPointRec(mouse_pos, button.rect)
+}
+
+arena_collide := []Segment {
 	{a = {0, 750}, b = {1200, 750}}, // floor
 	{a = {1200, 750}, b = {1200, 50}}, // right wall
 	{a = {1200, 50}, b = {0, 50}}, // ceiling
@@ -244,6 +270,8 @@ arena_segments := []Segment {
 	{a = {700, 200}, b = {900, 150}}, // slope up-right near ceiling
 	{a = {900, 150}, b = {1050, 150}}, // flat near ceiling
 }
+
+button_tex := rl.LoadTexture("./static/tlaw.png")
 
 create_test_game :: proc() -> Game {
 	p1 := Entity {
@@ -277,13 +305,151 @@ create_test_game :: proc() -> Game {
 
 
 	game := Game {
-		gc             = gc,
-		players        = players,
-		arena_segments = arena_segments,
-		last_tag       = 0,
+		gc            = gc,
+		players       = players,
+		arena_collide = arena_collide,
+		last_tag      = 0,
+		game_time     = GAME_TIME,
+		play_state    = .Playing,
 	}
 
+	buttons := make([]Button, 3, context.allocator)
+	buttons[0] = {
+		rect = {500, 300, 200, 60},
+		glyph = button_tex,
+		states = {.MainMenu},
+		on_click = proc(game: ^Game) {game.play_state = .Playing},
+	}
+	buttons[1] = {
+		rect = {500, 380, 200, 60},
+		glyph = button_tex,
+		states = {.GameOver},
+		on_click = proc(game: ^Game) {game.play_state = .Playing},
+	}
+	buttons[2] = {
+		rect = {20, 20, 40, 40},
+		glyph = button_tex,
+		states = {.MainMenu, .Paused},
+		on_click = proc(game: ^Game) {fmt.printf("settings")},
+	}
+
+	game.buttons = buttons
+
 	return game
+}
+
+update_game :: proc(game: ^Game, dt: f32) {
+	if rl.IsMouseButtonPressed(.LEFT) {
+	}
+	if game.play_state != .Playing {return}
+	for &player in game.players {
+		update_entity(game.arena_collide, &player, dt)
+	}
+
+	resolve_entity_tagging(game, dt)
+
+	update_camera(
+		&game.gc,
+		game.players[0].center,
+		game.players[1].center,
+		GAME_WIDTH,
+		GAME_HEIGHT,
+		dt,
+	)
+
+	game.game_time -= dt
+	if game.game_time < 0 {
+		game.game_time = 0
+		declare_win(game)
+	}
+}
+
+render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
+	rl.BeginTextureMode(target)
+	rl.ClearBackground(rl.WHITE)
+
+	rl.BeginMode2D(game.gc.cam)
+	draw_segs(game.arena_collide)
+
+	for &player in game.players {
+		draw_entity(player)
+	}
+
+	rl.EndMode2D()
+
+	rl.DrawText(fmt.ctprintf("%.0f", game.game_time), GAME_WIDTH / 2, 30, 30, rl.BLACK)
+
+	if game.play_state == .GameOver {
+		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
+
+		text: cstring = "Game Over!"
+		font_size: i32 = 100
+		text_width := rl.MeasureText(text, font_size)
+
+		rl.DrawText(
+			text,
+			i32(GAME_WIDTH / 2) - text_width / 2,
+			i32(GAME_HEIGHT / 2) - font_size / 2,
+			font_size,
+			rl.BLACK,
+		)
+	} else if game.play_state == .Paused {
+		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
+		text: cstring = "Paused"
+		font_size: i32 = 100
+		text_width := rl.MeasureText(text, font_size)
+
+		rl.DrawText(
+			text,
+			i32(GAME_WIDTH / 2) - text_width / 2,
+			i32(GAME_HEIGHT / 2) - font_size / 2,
+			font_size,
+			rl.BLACK,
+		)
+	}
+
+	draw_buttons(game)
+
+	rl.EndTextureMode()
+}
+
+draw_buttons :: proc(game: ^Game) {
+	for button in game.buttons {
+		if game.play_state in button.states {
+			rl.DrawRectangleRec(button.rect, rl.ORANGE)
+		}
+	}
+}
+
+
+declare_win :: proc(game: ^Game) {
+	for player in game.players {
+		if !player.tagged {
+			fmt.printf("player %s won!", player.color)
+		}
+	}
+
+	game.play_state = .GameOver
+}
+
+draw_screen :: proc(target: rl.RenderTexture2D) {
+	screen_w := f32(rl.GetScreenWidth())
+	screen_h := f32(rl.GetScreenHeight())
+	scale := min(screen_w / GAME_WIDTH, screen_h / GAME_HEIGHT)
+
+	dest := rl.Rectangle {
+		(screen_w - GAME_WIDTH * scale) / 2,
+		(screen_h - GAME_HEIGHT * scale) / 2,
+		GAME_WIDTH * scale,
+		GAME_HEIGHT * scale,
+	}
+
+	src := rl.Rectangle{0, 0, GAME_WIDTH, -GAME_HEIGHT}
+
+	rl.BeginDrawing()
+	rl.ClearBackground(rl.BLACK)
+	rl.DrawTexturePro(target.texture, src, dest, {0, 0}, 0, rl.WHITE)
+	rl.EndDrawing()
 }
 
 main :: proc() {
@@ -298,48 +464,10 @@ main :: proc() {
 
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
-		for &player in game.players {
-			update_entity(game.arena_segments, &player, dt)
-		}
 
-		resolve_entity_tagging(&game, dt)
-
-		update_camera(
-			&game.gc,
-			game.players[0].center,
-			game.players[1].center,
-			GAME_WIDTH,
-			GAME_HEIGHT,
-			dt,
-		)
-
-		rl.BeginTextureMode(target)
-		rl.ClearBackground(rl.WHITE)
-		rl.BeginMode2D(game.gc.cam)
-		draw_segs(game.arena_segments)
-		for &player in game.players {
-			draw_entity(player)
-		}
-
-		rl.EndMode2D()
-		rl.EndTextureMode()
-
-		screen_w := f32(rl.GetScreenWidth())
-		screen_h := f32(rl.GetScreenHeight())
-		scale := min(screen_w / GAME_WIDTH, screen_h / GAME_HEIGHT)
-
-		dest := rl.Rectangle {
-			(screen_w - GAME_WIDTH * scale) / 2,
-			(screen_h - GAME_HEIGHT * scale) / 2,
-			GAME_WIDTH * scale,
-			GAME_HEIGHT * scale,
-		}
-		src := rl.Rectangle{0, 0, GAME_WIDTH, -GAME_HEIGHT}
-
-		rl.BeginDrawing()
-		rl.ClearBackground(rl.BLACK)
-		rl.DrawTexturePro(target.texture, src, dest, {0, 0}, 0, rl.WHITE)
-		rl.EndDrawing()
+		update_game(&game, dt)
+		render_game(&game, target)
+		draw_screen(target)
 	}
 
 	rl.UnloadRenderTexture(target)
