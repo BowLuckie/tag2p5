@@ -33,6 +33,25 @@ TiledTileset :: struct {
 	tilecount:  int,
 	tilewidth:  int,
 	tileheight: int,
+	tiles:      []TiledTileDef,
+}
+
+TiledTileDef :: struct {
+	id:         int,
+	properties: []TiledProperty,
+}
+
+TiledProperty :: struct {
+	value: []TiledPropListItem, // []f64
+}
+
+TiledPropListItem :: struct {
+	value: f64,
+}
+
+TileCollideData :: struct {
+	id:     u32,
+	points: []f64,
 }
 
 Tilemap :: struct {
@@ -45,6 +64,7 @@ Tilemap :: struct {
 	tileset_tex:  rl.Texture2D,
 	first_gid:    int,
 	columns:      int,
+	collide_data: map[u32][]f64,
 }
 
 load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
@@ -57,8 +77,23 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 
 	layer := tmap.layers[0]
 
+
 	img_path := fmt.ctprint("./static/", tmap.tilesets[0].image, sep = "")
 	tileset_tex := rl.LoadTexture(img_path)
+
+	collide_data := make(map[u32][]f64)
+
+	for ttdef in tmap.tilesets[0].tiles {
+		id := u32(ttdef.id)
+		points: [dynamic]f64
+		for tprop in ttdef.properties {
+			for tlist_item in tprop.value {
+				append(&points, tlist_item.value)
+			}
+		}
+		collide_data[id] = points[:]
+	}
+
 
 	tilemap = Tilemap {
 		tiles        = layer.data,
@@ -70,6 +105,7 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		tileset_tex  = tileset_tex,
 		first_gid    = tmap.tilesets[0].firstgid,
 		columns      = tmap.tilesets[0].columns,
+		collide_data = collide_data,
 	}
 
 	return tilemap, nil
@@ -83,7 +119,7 @@ get_gid_and_flags :: proc(raw: u32) -> (gid: u32, flip_h, flip_v, flip_d: bool) 
 	return
 }
 
-generate_segments :: proc(tilemap: Tilemap) -> [dynamic]Segment {
+generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 	segments := make([dynamic]Segment)
 	for y := 0; y < tilemap.height; y += 1 {
 		for x := 0; x < tilemap.width; x += 1 {
@@ -91,31 +127,61 @@ generate_segments :: proc(tilemap: Tilemap) -> [dynamic]Segment {
 
 			raw := tilemap.tiles[index]
 			gid, flip_h, flip_v, flip_d := get_gid_and_flags(raw)
-			seg := generate_seg(gid, flip_h, flip_v, flip_d, Vector2{f32(x), f32(y)}, tilemap)
+			segs := segs_from_collide(
+				gid,
+				flip_h,
+				flip_v,
+				flip_d,
+				Vector2{f32(x), f32(y)},
+				tilemap,
+			)
 
-			append(&segments, seg)
+			append(&segments, ..segs)
 		}
 	}
 
-	return segments
+	return segments[:]
 }
 
-generate_seg :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) -> Segment {
+segs_from_collide :: proc(
+	gid: u32,
+	h, v, d: bool,
+	top_left: Vector2,
+	tilemap: Tilemap,
+) -> []Segment {
 	trueid := int(gid) - tilemap.first_gid
-	if trueid < 0 {return {}}
-	seg: Segment
-	start: Vector2
-	end: Vector2
-	switch trueid {
-	// case 0:
-	// 	start = top_left + Vector2{.2, .9}
-	// 	end = top_left + Vector2{.9, .9}
-	case:
-		start = top_left
-		end = top_left + Vector2{1, 0}
+	if trueid < 0 do return {}
+
+	points_upair := tilemap.collide_data[u32(trueid)]
+	points := squash_pairs(points_upair)
+
+	for &point in points {
+		point.x *= f32(tilemap.tile_width)
+		point.y *= f32(tilemap.tile_height)
+		point.x += top_left.x * f32(tilemap.tile_width)
+		point.y += top_left.y * f32(tilemap.tile_height)
 	}
 
-	return Segment{start * f32(tilemap.tile_width), end * f32(tilemap.tile_width)}
+	segments: [dynamic]Segment
+
+	for pt, i in points {
+		if i >= len(points) - 1 do break
+
+		seg := Segment{pt, points[i + 1]}
+
+		append(&segments, seg)
+	}
+
+	return segments[:]
+}
+
+squash_pairs :: proc(upaired: []f64) -> []Vector2 {
+	assert(len(upaired) % 2 == 0, "malformed collision data pairings")
+	result := make([]Vector2, len(upaired) / 2)
+	for i in 0 ..< len(result) {
+		result[i] = Vector2{f32(upaired[i * 2]), f32(upaired[i * 2 + 1])}
+	}
+	return result
 }
 
 draw_tilemap :: proc(tilemap: Tilemap) {

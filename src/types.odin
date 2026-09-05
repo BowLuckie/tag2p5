@@ -38,15 +38,15 @@ PlayState :: enum {
 }
 
 Game :: struct {
-	gc:            GameCamera,
-	players:       []Entity,
-	tilemap:       Tilemap,
-	segments:      [dynamic]Segment,
-	last_tag:      f32,
-	mode:          GameMode,
-	game_time:     f32,
-	play_state:    PlayState,
-	buttons:       []Button,
+	gc:         GameCamera,
+	players:    []Entity,
+	tilemap:    Tilemap,
+	segments:   []Segment,
+	last_tag:   f32,
+	mode:       GameMode,
+	game_time:  f32,
+	play_state: PlayState,
+	buttons:    []Button,
 }
 
 Button :: struct {
