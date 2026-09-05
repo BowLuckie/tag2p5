@@ -223,7 +223,6 @@ draw_text :: proc(
 	text_width := rl.MeasureText(text, font_size)
 
 	rl.DrawText(text, PosX - text_width / 2, PosY - font_size / 2, font_size, color)
-
 }
 
 draw_buttons :: proc(game: ^Game) {
