@@ -33,41 +33,45 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 free_game :: proc(game: ^Game) {
 	delete(game.players)
 	rl.UnloadTexture(game.tilemap.tileset_tex)
-	delete(game.tilemap.segments)
+	delete(game.segments)
 	for btn in game.buttons {
 		rl.UnloadTexture(btn.glyph)
 	}
 	delete(game.buttons)
 }
 
-create_game :: proc(tilemap_path: string) -> Game {
+make_button :: proc(
+	rect: rl.Rectangle,
+	glyph: rl.Texture2D,
+	states: bit_set[PlayState],
+	on_click: proc(game: ^Game),
+) -> Button {
+	return Button{rect, glyph, states, on_click}
+}
+
+create_game :: proc(
+	tilemap_path: string,
+	player_configs: []PlayerConfig,
+	game_time: f32 = GAME_TIME,
+) -> Game {
 	tilemap, _ := load_tilemap(tilemap_path)
 
 	restart_tex := rl.LoadTexture("./static/restart.png")
 	play_tex := rl.LoadTexture("./static/play.png")
 	pause_tex := rl.LoadTexture("./static/pause.png")
 
-	p1 := Entity {
-		center            = {300, 300},
-		vel               = 0,
-		radius            = 30,
-		color             = rl.BLUE,
-		movement_callback = p1_movement,
-		tagged            = true,
+	players := make([]Entity, len(player_configs))
+	for i in 0 ..< len(player_configs) {
+		pc := player_configs[i]
+		players[i] = Entity {
+			center            = pc.center,
+			vel               = 0,
+			radius            = pc.radius,
+			color             = pc.color,
+			movement_callback = pc.movement_callback,
+			tagged            = i == 0,
+		}
 	}
-
-	p2 := Entity {
-		center            = {300, 300},
-		vel               = 0,
-		radius            = 30,
-		color             = rl.RED,
-		movement_callback = ai_callback,
-		tagged            = false,
-	}
-
-	players := make([]Entity, 2)
-	players[0] = p1
-	players[1] = p2
 
 	gc := GameCamera {
 		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
@@ -76,54 +80,68 @@ create_game :: proc(tilemap_path: string) -> Game {
 		padding = CAM_PADDING,
 	}
 
-
 	game := Game {
-		gc            = gc,
-		players       = players,
-		tilemap       = tilemap,
-		last_tag      = 0,
-		game_time     = GAME_TIME,
-		play_state    = .MainMenu,
+		gc         = gc,
+		players    = players,
+		tilemap    = tilemap,
+		segments   = generate_segments(tilemap),
+		last_tag   = 0,
+		game_time  = game_time,
+		play_state = .MainMenu,
 	}
 
 	buttons := make([]Button, 4, context.allocator)
-	buttons[0] = {
-		rect = {GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-		glyph = play_tex,
-		states = {.MainMenu},
-		on_click = proc(game: ^Game) {game.play_state = .Playing},
-	}
-
-	buttons[1] = {
-		rect     = {GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-		glyph    = restart_tex,
-		states   = {.GameOver},
-		on_click = restart_game,
-	}
-
-	buttons[2] = {
-		rect = {GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 64, 64},
-		glyph = pause_tex,
-		states = {.Playing},
-		on_click = proc(game: ^Game) {game.play_state = .Paused},
-	}
-
-	buttons[3] = {
-		rect = {GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-		glyph = play_tex,
-		states = {.Paused},
-		on_click = proc(game: ^Game) {game.play_state = .Playing},
-	}
-
+	buttons[0] = make_button(
+		{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+		play_tex,
+		{.MainMenu},
+		proc(game: ^Game) {game.play_state = .Playing},
+	)
+	buttons[1] = make_button(
+		{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+		restart_tex,
+		{.GameOver},
+		restart_game,
+	)
+	buttons[2] = make_button(
+		{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 64, 64},
+		pause_tex,
+		{.Playing},
+		proc(game: ^Game) {game.play_state = .Paused},
+	)
+	buttons[3] = make_button(
+		{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+		play_tex,
+		{.Paused},
+		proc(game: ^Game) {game.play_state = .Playing},
+	)
 
 	game.buttons = buttons
 
 	return game
 }
 
+create_test_game :: proc() -> Game {
+	player_configs := [2]PlayerConfig {
+		{
+			center = {300, 300},
+			radius = PLAYER_RAD,
+			color = rl.BLUE,
+			movement_callback = p1_movement,
+		},
+		{
+			center = {300, 300},
+			radius = PLAYER_RAD,
+			color = rl.RED,
+			movement_callback = p1_movement,
+		},
+	}
+	return create_game("./static/basic.json", player_configs[:])
+}
+
 restart_game :: proc(game: ^Game) {
 	free_game(game)
-	game^ = create_game("./static/basic.json")
+	game^ = create_test_game()
 	game.play_state = .Playing
 }
 
@@ -135,7 +153,7 @@ update_game :: proc(game: ^Game, dt: f32) {
 
 	if game.play_state != .Playing {return}
 	for &player in game.players {
-		update_entity(game.tilemap.segments, &player, dt)
+		update_entity(game.segments, &player, dt)
 	}
 
 	resolve_entity_tagging(game, dt)
@@ -169,7 +187,8 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.ClearBackground(rl.WHITE)
 
 	rl.BeginMode2D(game.gc.cam)
-	draw_segs(game.tilemap.segments)
+	draw_segs(game.segments)
+	draw_tilemap(game.tilemap)
 
 	for &player in game.players {
 		draw_entity(player)

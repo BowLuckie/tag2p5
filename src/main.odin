@@ -3,9 +3,10 @@ package tag2p5
 import rl "vendor:raylib"
 
 main :: proc() {
-	rl.SetConfigFlags({.WINDOW_RESIZABLE})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
-	game := create_game("./static/basic.json")
+	rl.SetWindowMinSize(GAME_WIDTH / 4, GAME_HEIGHT / 4)
+	game := create_test_game()
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
 

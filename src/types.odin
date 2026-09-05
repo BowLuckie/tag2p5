@@ -41,6 +41,7 @@ Game :: struct {
 	gc:            GameCamera,
 	players:       []Entity,
 	tilemap:       Tilemap,
+	segments:      [dynamic]Segment,
 	last_tag:      f32,
 	mode:          GameMode,
 	game_time:     f32,
@@ -53,4 +54,11 @@ Button :: struct {
 	glyph:    rl.Texture2D,
 	states:   bit_set[PlayState],
 	on_click: proc(game: ^Game),
+}
+
+PlayerConfig :: struct {
+	center:            Vector2,
+	radius:            f32,
+	color:             rl.Color,
+	movement_callback: proc() -> (dir: f32, jump: bool),
 }

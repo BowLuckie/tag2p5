@@ -3,8 +3,8 @@ package tag2p5
 import rl "vendor:raylib"
 
 draw_screen :: proc(target: rl.RenderTexture2D) {
-	screen_w := f32(rl.GetScreenWidth())
-	screen_h := f32(rl.GetScreenHeight())
+	screen_w := max(f32(rl.GetScreenWidth()), f32(GAME_WIDTH) / 4)
+	screen_h := max(f32(rl.GetScreenHeight()), f32(GAME_HEIGHT) / 4)
 	scale := min(screen_w / GAME_WIDTH, screen_h / GAME_HEIGHT)
 
 	dest := rl.Rectangle {
@@ -24,8 +24,8 @@ draw_screen :: proc(target: rl.RenderTexture2D) {
 
 mouse_pos :: proc() -> Vector2 {
 	mouse := rl.GetMousePosition()
-	screen_w := f32(rl.GetScreenWidth())
-	screen_h := f32(rl.GetScreenHeight())
+	screen_w := max(f32(rl.GetScreenWidth()), f32(GAME_WIDTH) / 4)
+	screen_h := max(f32(rl.GetScreenHeight()), f32(GAME_HEIGHT) / 4)
 	scale := min(screen_w / GAME_WIDTH, screen_h / GAME_HEIGHT)
 
 	offset_x := (screen_w - GAME_WIDTH * scale) / 2

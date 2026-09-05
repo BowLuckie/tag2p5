@@ -4,7 +4,7 @@ package tag2p5
 import rl "vendor:raylib"
 
 draw_seg :: proc(seg: Segment) {
-	draw_ground_fill(seg, rl.BLACK, PLAT_THICKNESS)
+	rl.DrawLineEx(seg.a, seg.b, 5, rl.RED)
 }
 
 draw_ground_fill :: proc(seg: Segment, color: rl.Color, depth: f32) {
