@@ -1,4 +1,4 @@
-package main
+package tag2p5
 
 import rl "vendor:raylib"
 
@@ -40,7 +40,7 @@ PlayState :: enum {
 Game :: struct {
 	gc:            GameCamera,
 	players:       []Entity,
-	arena_collide: []Segment,
+	tilemap:       Tilemap,
 	last_tag:      f32,
 	mode:          GameMode,
 	game_time:     f32,

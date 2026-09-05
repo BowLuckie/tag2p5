@@ -1,4 +1,4 @@
-package main
+package tag2p5
 
 GAME_WIDTH :: 1200
 GAME_HEIGHT :: 800
@@ -20,4 +20,4 @@ COYOTE_TIME :: 0.1
 TAG_IMMUNITY :: 1
 GAME_TIME :: 60
 
-PLAT_THICKNESS :: 20
+PLAT_THICKNESS :: 5

@@ -1,4 +1,4 @@
-package main
+package tag2p5
 
 import rl "vendor:raylib"
 

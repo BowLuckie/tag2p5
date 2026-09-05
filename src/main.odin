@@ -1,13 +1,14 @@
-package main
+package tag2p5
 
 import rl "vendor:raylib"
 
 main :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
-	game := create_test_game()
+	game := create_game("./static/basic.json")
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
+
 
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()

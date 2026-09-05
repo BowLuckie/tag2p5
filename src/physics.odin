@@ -1,4 +1,4 @@
-package main
+package tag2p5
 
 import "core:math/linalg"
 import "core:math/rand"
@@ -58,7 +58,7 @@ resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector
 	return false, {}
 }
 
-update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
+update_entity :: proc(arena: [dynamic]Segment, e: ^Entity, dt: f32) {
 	dir, jump := e.movement_callback()
 
 	target_x := dir * MOVE_SPEED

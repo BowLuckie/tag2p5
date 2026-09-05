@@ -1,4 +1,4 @@
-package main
+package tag2p5
 
 import "core:fmt"
 import "core:math"
@@ -32,13 +32,17 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 
 free_game :: proc(game: ^Game) {
 	delete(game.players)
+	rl.UnloadTexture(game.tilemap.tileset_tex)
+	delete(game.tilemap.segments)
 	for btn in game.buttons {
 		rl.UnloadTexture(btn.glyph)
 	}
 	delete(game.buttons)
 }
 
-create_test_game :: proc() -> Game {
+create_game :: proc(tilemap_path: string) -> Game {
+	tilemap, _ := load_tilemap(tilemap_path)
+
 	restart_tex := rl.LoadTexture("./static/restart.png")
 	play_tex := rl.LoadTexture("./static/play.png")
 	pause_tex := rl.LoadTexture("./static/pause.png")
@@ -53,7 +57,7 @@ create_test_game :: proc() -> Game {
 	}
 
 	p2 := Entity {
-		center            = {2100, 300},
+		center            = {300, 300},
 		vel               = 0,
 		radius            = 30,
 		color             = rl.RED,
@@ -76,7 +80,7 @@ create_test_game :: proc() -> Game {
 	game := Game {
 		gc            = gc,
 		players       = players,
-		arena_collide = arena_collide,
+		tilemap       = tilemap,
 		last_tag      = 0,
 		game_time     = GAME_TIME,
 		play_state    = .MainMenu,
@@ -119,7 +123,7 @@ create_test_game :: proc() -> Game {
 
 restart_game :: proc(game: ^Game) {
 	free_game(game)
-	game^ = create_test_game()
+	game^ = create_game("./static/basic.json")
 	game.play_state = .Playing
 }
 
@@ -131,7 +135,7 @@ update_game :: proc(game: ^Game, dt: f32) {
 
 	if game.play_state != .Playing {return}
 	for &player in game.players {
-		update_entity(game.arena_collide, &player, dt)
+		update_entity(game.tilemap.segments, &player, dt)
 	}
 
 	resolve_entity_tagging(game, dt)
@@ -165,7 +169,7 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.ClearBackground(rl.WHITE)
 
 	rl.BeginMode2D(game.gc.cam)
-	draw_segs(game.arena_collide)
+	draw_segs(game.tilemap.segments)
 
 	for &player in game.players {
 		draw_entity(player)
