@@ -136,7 +136,7 @@ create_test_game :: proc() -> Game {
 			movement_callback = p2_movement,
 		},
 	}
-	return create_game("./static/basic.json", player_configs[:])
+	return create_game("./static/pretty.json", player_configs[:])
 }
 
 restart_game :: proc(game: ^Game) {
