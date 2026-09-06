@@ -8,6 +8,7 @@ Segment :: struct {
 	a, b: Vector2,
 }
 
+// TODO: power ups? abilitys?
 Entity :: struct {
 	center:            Vector2,
 	vel:               Vector2,

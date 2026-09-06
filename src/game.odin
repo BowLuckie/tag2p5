@@ -136,7 +136,7 @@ create_test_game :: proc() -> Game {
 			movement_callback = p2_movement,
 		},
 	}
-	return create_game("./static/pretty.json", player_configs[:])
+	return create_game("./static/pretty.json", player_configs[:]) // change me!
 }
 
 restart_game :: proc(game: ^Game) {
@@ -182,6 +182,15 @@ handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
 	}
 }
 
+
+draw_segs :: proc(segs: []Segment) {
+	for seg in segs {
+		// rl.DrawLineEx(seg.a, seg.b, 5, rl.RED)
+	}
+}
+
+
+// TODO: add parallax layers, a general background, improve game over and menus
 render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.BeginTextureMode(target)
 	rl.ClearBackground(rl.WHITE)
@@ -221,7 +230,6 @@ draw_text :: proc(
 	color: rl.Color = rl.BLACK,
 ) {
 	text_width := rl.MeasureText(text, font_size)
-
 	rl.DrawText(text, PosX - text_width / 2, PosY - font_size / 2, font_size, color)
 }
 
@@ -248,6 +256,8 @@ draw_buttons :: proc(game: ^Game) {
 	}
 }
 
+
+// TODO: improve game over screen
 declare_win :: proc(game: ^Game) {
 	for player in game.players {
 		if !player.tagged {

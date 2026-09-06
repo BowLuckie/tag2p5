@@ -119,6 +119,8 @@ get_gid_and_flags :: proc(raw: u32) -> (gid: u32, flip_h, flip_v, flip_d: bool) 
 	return
 }
 
+
+// TODO: rotation flipped tiles
 generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 	segments := make([dynamic]Segment)
 	for y := 0; y < tilemap.height; y += 1 {
@@ -127,14 +129,7 @@ generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 
 			raw := tilemap.tiles[index]
 			gid, flip_h, flip_v, flip_d := get_gid_and_flags(raw)
-			segs := segs_from_collide(
-				gid,
-				flip_h,
-				flip_v,
-				flip_d,
-				Vector2{f32(x), f32(y)},
-				tilemap,
-			)
+			segs := segs_from_cdat(gid, flip_h, flip_v, flip_d, Vector2{f32(x), f32(y)}, tilemap)
 
 			append(&segments, ..segs)
 		}
@@ -143,12 +138,7 @@ generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 	return segments[:]
 }
 
-segs_from_collide :: proc(
-	gid: u32,
-	h, v, d: bool,
-	top_left: Vector2,
-	tilemap: Tilemap,
-) -> []Segment {
+segs_from_cdat :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) -> []Segment {
 	trueid := int(gid) - tilemap.first_gid
 	if trueid < 0 do return {}
 
@@ -184,6 +174,7 @@ squash_pairs :: proc(upaired: []f64) -> []Vector2 {
 	return result
 }
 
+// TODO: rotation flipped tiles, a little overlap?
 draw_tilemap :: proc(tilemap: Tilemap) {
 	for y := 0; y < tilemap.height; y += 1 {
 		for x := 0; x < tilemap.width; x += 1 {

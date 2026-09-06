@@ -18,6 +18,7 @@ p2_movement :: proc() -> (dir: f32, jump: bool) {
 	return dir, rl.IsKeyDown(.UP)
 }
 
+// TODO: improve ai
 ai_callback :: proc() -> (dir: f32, jump: bool) {
 	dir = f32(rand.uint32_max(5)) - 2
 	jump_c := rand.uint32_max(1000)
@@ -93,6 +94,7 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 	}
 }
 
+// TODO: give players sprites and orientation
 draw_entity :: proc(e: Entity) {
 	rl.DrawCircleV(e.center, e.radius, e.color)
 	if e.tagged {
@@ -111,6 +113,7 @@ draw_entity :: proc(e: Entity) {
 	}
 }
 
+// NOTE: last man standing mode?
 entity_tagging :: proc(e1, e2: ^Entity) -> bool {
 	diff := e1.center - e2.center
 	dist := linalg.length(diff)
