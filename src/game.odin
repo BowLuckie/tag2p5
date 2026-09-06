@@ -133,7 +133,7 @@ create_test_game :: proc() -> Game {
 			center = {300, 300},
 			radius = PLAYER_RAD,
 			color = rl.RED,
-			movement_callback = p1_movement,
+			movement_callback = p2_movement,
 		},
 	}
 	return create_game("./static/basic.json", player_configs[:])
