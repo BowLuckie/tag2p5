@@ -174,7 +174,7 @@ squash_pairs :: proc(upaired: []f64) -> []Vector2 {
 	return result
 }
 
-// TODO: rotation flipped tiles, a little overlap?
+// TODO: rotation flipped tiles
 draw_tilemap :: proc(tilemap: Tilemap) {
 	for y := 0; y < tilemap.height; y += 1 {
 		for x := 0; x < tilemap.width; x += 1 {
@@ -190,12 +190,13 @@ draw_tilemap :: proc(tilemap: Tilemap) {
 
 draw_tile :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) {
 	if gid == 0 {return}
+	overlap: f32 = 1
 	src := get_src_rect(tilemap, gid)
 	dest := rl.Rectangle {
 		top_left.x * f32(tilemap.tile_width),
 		top_left.y * f32(tilemap.tile_height),
-		f32(tilemap.tile_width),
-		f32(tilemap.tile_height),
+		f32(tilemap.tile_width) + overlap,
+		f32(tilemap.tile_height) + overlap,
 	}
 
 	rl.DrawTexturePro(tilemap.tileset_tex, src, dest, {0, 0}, 0, rl.WHITE)

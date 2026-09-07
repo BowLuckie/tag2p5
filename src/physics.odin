@@ -33,6 +33,7 @@ project :: proc(p, a, b: Vector2) -> Vector2 {
 	return a + ab * t
 }
 
+// TODO: Aabb and framerate jumping resolution
 resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
 	closest := project(e.center, seg.a, seg.b)
 	diff := e.center - closest
