@@ -185,7 +185,7 @@ handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
 
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
-		// rl.DrawLineEx(seg.a, seg.b, 5, rl.RED)
+		rl.DrawLineEx(seg.a, seg.b, 5, rl.RED)
 	}
 }
 

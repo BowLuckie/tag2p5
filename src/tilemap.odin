@@ -120,7 +120,6 @@ get_gid_and_flags :: proc(raw: u32) -> (gid: u32, flip_h, flip_v, flip_d: bool) 
 }
 
 
-// TODO: rotation flipped tiles
 generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 	segments := make([dynamic]Segment)
 	for y := 0; y < tilemap.height; y += 1 {
@@ -138,7 +137,7 @@ generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 	return segments[:]
 }
 
-segs_from_cdat :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) -> []Segment {
+segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tilemap) -> []Segment {
 	trueid := int(gid) - tilemap.first_gid
 	if trueid < 0 do return {}
 
@@ -146,10 +145,24 @@ segs_from_cdat :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tile
 	points := squash_pairs(points_upair)
 
 	for &point in points {
+		point -= 0.5
+		if h {
+			point.x *= -1
+		}
+
+		if v {
+			point.y *= -1
+		}
+
+		if d {
+			point.x, point.y = point.y, point.x
+		}
+		point += 0.5
+
 		point.x *= f32(tilemap.tile_width)
 		point.y *= f32(tilemap.tile_height)
-		point.x += top_left.x * f32(tilemap.tile_width)
-		point.y += top_left.y * f32(tilemap.tile_height)
+		point.x += world_tl.x * f32(tilemap.tile_width)
+		point.y += world_tl.y * f32(tilemap.tile_height)
 	}
 
 	segments: [dynamic]Segment
@@ -174,7 +187,6 @@ squash_pairs :: proc(upaired: []f64) -> []Vector2 {
 	return result
 }
 
-// TODO: rotation flipped tiles
 draw_tilemap :: proc(tilemap: Tilemap) {
 	for y := 0; y < tilemap.height; y += 1 {
 		for x := 0; x < tilemap.width; x += 1 {
@@ -190,14 +202,21 @@ draw_tilemap :: proc(tilemap: Tilemap) {
 
 draw_tile :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) {
 	if gid == 0 {return}
-	overlap: f32 = 1
 	src := get_src_rect(tilemap, gid)
+
+
 	dest := rl.Rectangle {
 		top_left.x * f32(tilemap.tile_width),
 		top_left.y * f32(tilemap.tile_height),
-		f32(tilemap.tile_width) + overlap,
-		f32(tilemap.tile_height) + overlap,
+		f32(tilemap.tile_width),
+		f32(tilemap.tile_height),
 	}
+
+	if d {
+		src.width, src.height = -src.height, -src.width
+	}
+	if h do src.width = -src.width
+	if v do src.height = -src.height
 
 	rl.DrawTexturePro(tilemap.tileset_tex, src, dest, {0, 0}, 0, rl.WHITE)
 }
