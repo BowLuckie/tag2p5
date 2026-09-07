@@ -54,7 +54,8 @@ create_game :: proc(
 	player_configs: []PlayerConfig,
 	game_time: f32 = GAME_TIME,
 ) -> Game {
-	tilemap, _ := load_tilemap(tilemap_path)
+	tilemap, err := load_tilemap(tilemap_path)
+	if err != nil {fmt.panicf("failed to load tilemap %s", err)}
 
 	restart_tex := rl.LoadTexture("./static/restart.png")
 	play_tex := rl.LoadTexture("./static/play.png")
@@ -80,6 +81,51 @@ create_game :: proc(
 		padding = CAM_PADDING,
 	}
 
+
+	buttons := make([dynamic]Button)
+	append(
+		&buttons,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+			play_tex,
+			{.MainMenu},
+			proc(game: ^Game) {game.play_state = .Playing},
+		),
+	)
+	append(
+		&buttons,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+			restart_tex,
+			{.GameOver},
+			restart_game,
+		),
+	)
+	append(
+		&buttons,
+		make_button(
+			{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 64, 64},
+			pause_tex,
+			{.Playing},
+			proc(game: ^Game) {game.play_state = .Paused},
+		),
+	)
+	append(
+		&buttons,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+			play_tex,
+			{.Paused},
+			proc(game: ^Game) {game.play_state = .Playing},
+		),
+	)
+
+	layers := make([dynamic]ParallaxLayer)
+	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg3.png"), 0.1})
+	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg2.png"), 0.3})
+	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg.png"), 0.9})
+	append(&layers, ParallaxLayer{rl.LoadTexture("./static/filler.png"), 0})
+
 	game := Game {
 		gc         = gc,
 		players    = players,
@@ -88,35 +134,9 @@ create_game :: proc(
 		last_tag   = 0,
 		game_time  = game_time,
 		play_state = .MainMenu,
+		buttons    = buttons[:],
+		bg_layers  = layers[:],
 	}
-
-	buttons := make([]Button, 4, context.allocator)
-	buttons[0] = make_button(
-		{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-		play_tex,
-		{.MainMenu},
-		proc(game: ^Game) {game.play_state = .Playing},
-	)
-	buttons[1] = make_button(
-		{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-		restart_tex,
-		{.GameOver},
-		restart_game,
-	)
-	buttons[2] = make_button(
-		{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 64, 64},
-		pause_tex,
-		{.Playing},
-		proc(game: ^Game) {game.play_state = .Paused},
-	)
-	buttons[3] = make_button(
-		{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-		play_tex,
-		{.Paused},
-		proc(game: ^Game) {game.play_state = .Playing},
-	)
-
-	game.buttons = buttons
 
 	return game
 }
@@ -124,13 +144,13 @@ create_game :: proc(
 create_test_game :: proc() -> Game {
 	player_configs := [2]PlayerConfig {
 		{
-			center = {300, 300},
+			center = {600, 300},
 			radius = PLAYER_RAD,
 			color = rl.BLUE,
 			movement_callback = p1_movement,
 		},
 		{
-			center = {300, 300},
+			center = {800, 350},
 			radius = PLAYER_RAD,
 			color = rl.RED,
 			movement_callback = p2_movement,
@@ -185,7 +205,7 @@ handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
 
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
-		rl.DrawLineEx(seg.a, seg.b, 5, rl.RED)
+		rl.DrawLineEx(seg.a, seg.b, 3, rl.BLACK)
 	}
 }
 
@@ -193,10 +213,12 @@ draw_segs :: proc(segs: []Segment) {
 // TODO: add parallax layers, a general background, improve game over and menus
 render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.BeginTextureMode(target)
-	rl.ClearBackground(rl.WHITE)
+	rl.ClearBackground(SKY_COLOR)
+
+	draw_parallax_layers(game^)
 
 	rl.BeginMode2D(game.gc.cam)
-	draw_segs(game.segments)
+	// draw_segs(game.segments)
 	draw_tilemap(game.tilemap)
 
 	for &player in game.players {
@@ -221,6 +243,43 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	draw_buttons(game)
 
 	rl.EndTextureMode()
+}
+
+draw_parallax_layers :: proc(game: Game) {
+	for layer in game.bg_layers {
+		tex_w := f32(layer.tex.width)
+		tex_h := f32(layer.tex.height)
+
+		scale := f32(GAME_HEIGHT) / tex_h
+		draw_w := tex_w * scale
+		draw_h := tex_h * scale
+
+		lcam := rl.Camera2D {
+			offset = {f32(GAME_WIDTH) / 2, f32(GAME_HEIGHT) / 2},
+			target = {game.gc.cam.target.x * layer.factor, 0},
+			zoom   = 1,
+		}
+		rl.BeginMode2D(lcam)
+
+		half_w := f32(GAME_WIDTH) / 2
+		left := lcam.target.x - half_w
+		right := lcam.target.x + half_w
+
+		start_x := left - math.mod(left, draw_w) - draw_w
+
+		for x := start_x; x < right + draw_w; x += draw_w {
+			rl.DrawTexturePro(
+				layer.tex,
+				{0, 0, tex_w, tex_h},
+				{x, -draw_h / 2, draw_w, draw_h},
+				{0, 0},
+				0,
+				rl.WHITE,
+			)
+		}
+
+		rl.EndMode2D()
+	}
 }
 
 draw_text :: proc(

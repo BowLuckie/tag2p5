@@ -204,12 +204,11 @@ draw_tile :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) 
 	if gid == 0 {return}
 	src := get_src_rect(tilemap, gid)
 
-
 	dest := rl.Rectangle {
 		top_left.x * f32(tilemap.tile_width),
 		top_left.y * f32(tilemap.tile_height),
-		f32(tilemap.tile_width),
-		f32(tilemap.tile_height),
+		f32(tilemap.tile_width) + HAIRLINE_OVERLAP,
+		f32(tilemap.tile_height) + HAIRLINE_OVERLAP,
 	}
 
 	if d {

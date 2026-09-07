@@ -48,6 +48,12 @@ Game :: struct {
 	game_time:  f32,
 	play_state: PlayState,
 	buttons:    []Button,
+	bg_layers:  []ParallaxLayer,
+}
+
+ParallaxLayer :: struct {
+	tex:    rl.Texture2D,
+	factor: f32,
 }
 
 Button :: struct {
