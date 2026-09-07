@@ -9,15 +9,24 @@ Segment :: struct {
 }
 
 // TODO: power ups? abilitys?
+// this needs some sort of struct that promotes its texture into it
+// so it can be updated by the animation
 Entity :: struct {
 	center:            Vector2,
 	vel:               Vector2,
+	tex:               rl.Texture2D,
 	radius:            f32,
 	color:             rl.Color,
 	grounded:          bool,
 	coyote_time:       f32,
 	tagged:            bool,
 	movement_callback: proc() -> (dir: f32, jump: bool),
+}
+
+Animation :: struct {
+	frame:          u8,
+	frame_time:     f32,
+	frame_duration: f32,
 }
 
 GameCamera :: struct {
@@ -68,4 +77,5 @@ PlayerConfig :: struct {
 	radius:            f32,
 	color:             rl.Color,
 	movement_callback: proc() -> (dir: f32, jump: bool),
+	tex:               rl.Texture2D,
 }

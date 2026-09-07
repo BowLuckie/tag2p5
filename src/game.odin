@@ -71,6 +71,7 @@ create_game :: proc(
 			color             = pc.color,
 			movement_callback = pc.movement_callback,
 			tagged            = i == 0,
+			tex               = pc.tex,
 		}
 	}
 
@@ -148,12 +149,14 @@ create_test_game :: proc() -> Game {
 			radius = PLAYER_RAD,
 			color = rl.BLUE,
 			movement_callback = p1_movement,
+			tex = rl.LoadTexture("./static/blue_p.png"),
 		},
 		{
 			center = {800, 350},
 			radius = PLAYER_RAD,
 			color = rl.RED,
 			movement_callback = p2_movement,
+			tex = rl.LoadTexture("./static/red_p.png"),
 		},
 	}
 	return create_game("./static/pretty.json", player_configs[:]) // change me!
@@ -209,8 +212,6 @@ draw_segs :: proc(segs: []Segment) {
 	}
 }
 
-
-// TODO: add parallax layers, a general background, improve game over and menus
 render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.BeginTextureMode(target)
 	rl.ClearBackground(SKY_COLOR)
@@ -325,4 +326,8 @@ declare_win :: proc(game: ^Game) {
 	}
 
 	game.play_state = .GameOver
+}
+
+// TODO: Animation
+update_animation :: proc(animation: ^Animation, dt: f32) {
 }

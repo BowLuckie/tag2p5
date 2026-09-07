@@ -97,21 +97,32 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 
 // TODO: give players sprites and orientation
 draw_entity :: proc(e: Entity) {
-	rl.DrawCircleV(e.center, e.radius, e.color)
+	// rl.DrawCircleV(e.center, e.radius, rl.GREEN)
 	if e.tagged {
-		gap: f32 = e.radius * 0.3
-		tri_height: f32 = e.radius * 0.8
-		tri_width: f32 = e.radius
+		// gap: f32 = e.radius * 0.3
+		// tri_height: f32 = e.radius * 0.8
+		// tri_width: f32 = e.radius
+		//
+		// base_y := e.center.y - e.radius - gap - tri_height
+		// tip_y := base_y + tri_height
+		//
+		// tip := Vector2{e.center.x, tip_y}
+		// left := Vector2{e.center.x - tri_width / 2, base_y}
+		// right := Vector2{e.center.x + tri_width / 2, base_y}
+		//
+		// rl.DrawTriangle(tip, right, left, e.color)
 
-		base_y := e.center.y - e.radius - gap - tri_height
-		tip_y := base_y + tri_height
-
-		tip := Vector2{e.center.x, tip_y}
-		left := Vector2{e.center.x - tri_width / 2, base_y}
-		right := Vector2{e.center.x + tri_width / 2, base_y}
-
-		rl.DrawTriangle(tip, right, left, e.color)
+		rl.DrawCircleGradient(e.center, e.radius * 1.2, e.color, rl.WHITE)
 	}
+
+	rl.DrawTexturePro(
+		e.tex,
+		{0, 0, f32(e.tex.width), f32(e.tex.height)},
+		{e.center.x, e.center.y, e.radius * 2, e.radius * 2},
+		{e.radius, e.radius},
+		0,
+		rl.WHITE,
+	)
 }
 
 // NOTE: last man standing mode?
