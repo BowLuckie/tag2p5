@@ -1,3 +1,4 @@
+
 package tag2p5
 
 import "core:fmt"
@@ -70,17 +71,17 @@ create_game :: proc(
 		if animation.columns == 0 do animation.columns = 5
 		if animation.tile_h == 0 do animation.tile_h = 16
 		if animation.tile_w == 0 do animation.tile_w = 16
-		if animation.tilesheet.id == 0 do animation.tilesheet = rl.LoadTexture("./static/pretty.png")
+		if animation.tilesheet.id == 0 do animation.tilesheet = rl.LoadTexture("./static/blue_flame.png")
 
 		players[i] = Entity {
 			center            = pc.center,
 			vel               = 0,
 			radius            = pc.radius,
-			color             = pc.color,
 			movement_callback = pc.movement_callback,
 			tagged            = i == 0,
 			animation         = animation,
 			tex               = pc.tex,
+			pid               = pc.pid,
 		}
 	}
 
@@ -114,7 +115,7 @@ create_game :: proc(
 	append(
 		&buttons,
 		make_button(
-			{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 64, 64},
+			{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 128, 128},
 			pause_tex,
 			{.Playing},
 			proc(game: ^Game) {game.play_state = .Paused},
@@ -153,33 +154,34 @@ create_game :: proc(
 
 create_test_game :: proc() -> Game {
 
-	ring_anim := AnimationObj {
-		frame_duration = 0.18,
-		tile_count     = 6,
-		columns        = 6,
+	player_anim := AnimationObj {
+		frame_duration = 0.1,
+		tile_count     = 3,
+		columns        = 1,
 		tile_w         = 64,
 		tile_h         = 64,
-		tilesheet      = rl.LoadTexture("./static/ringsheet.png"),
+		tilesheet      = rl.LoadTexture("./static/blue_p-Sheet.png"),
 	}
 
 	player_configs := [2]PlayerConfig {
 		{
 			center = {600, 300},
 			radius = PLAYER_RAD,
-			color = rl.BLUE,
 			movement_callback = p1_movement,
 			tex = rl.LoadTexture("./static/blue_p.png"),
-			animation = ring_anim,
+			animation = player_anim,
+			pid = 0,
 		},
 		{
-			center = {800, 350},
+			center = {800, 400},
 			radius = PLAYER_RAD,
-			color = rl.RED,
 			movement_callback = p2_movement,
 			tex = rl.LoadTexture("./static/red_p.png"),
-			animation = ring_anim,
+			animation = player_anim,
+			pid = 1,
 		},
 	}
+
 	return create_game("./static/pretty.json", player_configs[:]) // change me!
 }
 
@@ -249,7 +251,12 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 
 	rl.EndMode2D()
 
-	rl.DrawText(fmt.ctprintf("%.0f", game.game_time), GAME_WIDTH / 2, 30, 30, rl.BLACK)
+	t_color := rl.BLACK
+	t_int := uint(game.game_time)
+	if t_int % 2 == 0 && game.game_time < 9 {
+		t_color = rl.RED
+	}
+	rl.DrawText(fmt.ctprintf("%d", t_int), GAME_WIDTH / 2, 60, 80, t_color)
 
 	if game.play_state == .GameOver {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
@@ -342,7 +349,7 @@ draw_buttons :: proc(game: ^Game) {
 declare_win :: proc(game: ^Game) {
 	for player in game.players {
 		if !player.tagged {
-			fmt.printf("player %s won!", player.color)
+			fmt.printf("player %s won!", player.pid + 1)
 		}
 	}
 

@@ -14,13 +14,13 @@ Entity :: struct {
 	center:            Vector2,
 	vel:               Vector2,
 	radius:            f32,
-	color:             rl.Color,
 	grounded:          bool,
 	coyote_time:       f32,
 	tagged:            bool,
 	animation:         AnimationObj,
 	tex:               rl.Texture2D,
 	rotation:          f32,
+	pid:              uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
 
@@ -82,8 +82,8 @@ Button :: struct {
 PlayerConfig :: struct {
 	center:            Vector2,
 	radius:            f32,
-	color:             rl.Color,
 	animation:         AnimationObj,
 	tex:               rl.Texture2D,
+	pid:              uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }

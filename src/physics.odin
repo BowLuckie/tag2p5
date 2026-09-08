@@ -1,5 +1,6 @@
 package tag2p5
 
+import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:math/rand"
@@ -100,21 +101,6 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 }
 
 draw_entity :: proc(e: Entity) {
-	if e.tagged {
-		draw_triangle(e)
-
-		rect := animation_rect(e.animation)
-
-		rl.DrawTexturePro(
-			e.animation.tilesheet,
-			rect,
-			{e.center.x - e.radius, e.center.y - e.radius, e.radius * 2, e.radius * 2},
-			{0, 0},
-			0,
-			e.color,
-		)
-	}
-
 	sign: f32 = 1
 	if e.vel.x < 0 {
 		sign = -1
@@ -128,21 +114,50 @@ draw_entity :: proc(e: Entity) {
 		e.rotation,
 		rl.WHITE,
 	)
+
+	if e.tagged {
+		draw_triangle(e)
+		rect := animation_rect(e.animation)
+		// rl.DrawTexturePro(
+		// 	e.animation.tilesheet,
+		// 	rect,
+		// 	{e.center.x, e.center.y, e.radius * 4, e.radius * 4},
+		// 	{e.radius * 2, e.radius * 2},
+		// 	0,
+		// 	rl.WHITE,
+		// )
+	}
+
 }
 
 draw_triangle :: proc(e: Entity) {
-	gap: f32 = e.radius * 0.3
-	tri_height: f32 = e.radius * 0.8
-	tri_width: f32 = e.radius
+	// gap: f32 = e.radius * 0.3
+	// tri_height: f32 = e.radius * 0.8
+	// tri_width: f32 = e.radius
+	//
+	// base_y := e.center.y - e.radius - gap - tri_height
+	// tip_y := base_y + tri_height
+	//
+	// tip := Vector2{e.center.x, tip_y}
+	// left := Vector2{e.center.x - tri_width / 2, base_y}
+	// right := Vector2{e.center.x + tri_width / 2, base_y}
+	//
+	// rl.DrawTriangle(tip, right, left, e.color)
 
-	base_y := e.center.y - e.radius - gap - tri_height
-	tip_y := base_y + tri_height
+	triangle_tex: rl.Texture2D
 
-	tip := Vector2{e.center.x, tip_y}
-	left := Vector2{e.center.x - tri_width / 2, base_y}
-	right := Vector2{e.center.x + tri_width / 2, base_y}
+	if e.pid == 1 {
+		triangle_tex = rl.LoadTexture("./static/triangle_r.png")
+	} else {
+		triangle_tex = rl.LoadTexture("./static/triangle_b.png")
+	}
 
-	rl.DrawTriangle(tip, right, left, e.color)
+	rl.DrawTexture(
+		triangle_tex,
+		i32(e.center.x) - (triangle_tex.width / 2) + 1,
+		i32(e.center.y) - i32(e.radius * 2.2),
+		rl.WHITE,
+	)
 }
 
 entity_tagging :: proc(e1, e2: ^Entity) -> bool {
