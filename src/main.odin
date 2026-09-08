@@ -3,7 +3,7 @@ package tag2p5
 import rl "vendor:raylib"
 
 main :: proc() {
-	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT, .FULLSCREEN_MODE})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
 	rl.SetWindowMinSize(GAME_WIDTH / 4, GAME_HEIGHT / 4)
 	game := create_test_game()

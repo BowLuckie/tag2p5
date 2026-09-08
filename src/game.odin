@@ -64,6 +64,14 @@ create_game :: proc(
 	players := make([]Entity, len(player_configs))
 	for i in 0 ..< len(player_configs) {
 		pc := player_configs[i]
+		animation := pc.animation
+		if animation.frame_duration <= 0 do animation.frame_duration = 0.5
+		if animation.tile_count == 0 do animation.tile_count = 15
+		if animation.columns == 0 do animation.columns = 5
+		if animation.tile_h == 0 do animation.tile_h = 16
+		if animation.tile_w == 0 do animation.tile_w = 16
+		if animation.tilesheet.id == 0 do animation.tilesheet = rl.LoadTexture("./static/pretty.png")
+
 		players[i] = Entity {
 			center            = pc.center,
 			vel               = 0,
@@ -71,6 +79,7 @@ create_game :: proc(
 			color             = pc.color,
 			movement_callback = pc.movement_callback,
 			tagged            = i == 0,
+			animation         = animation,
 			tex               = pc.tex,
 		}
 	}
@@ -150,6 +159,14 @@ create_test_game :: proc() -> Game {
 			color = rl.BLUE,
 			movement_callback = p1_movement,
 			tex = rl.LoadTexture("./static/blue_p.png"),
+			animation = AnimationObj { 	// TODO: fix ringsheet
+				frame_duration = 0.2,
+				tile_count     = 5,
+				columns        = 1,
+				tile_w         = 24,
+				tile_h         = 24,
+				tilesheet      = rl.LoadTexture("./static/ringsheet.png"),
+			},
 		},
 		{
 			center = {800, 350},
@@ -157,6 +174,14 @@ create_test_game :: proc() -> Game {
 			color = rl.RED,
 			movement_callback = p2_movement,
 			tex = rl.LoadTexture("./static/red_p.png"),
+			animation = AnimationObj {
+				frame_duration = 0.2,
+				tile_count = 5,
+				columns = 1,
+				tile_w = 24,
+				tile_h = 24,
+				tilesheet = rl.LoadTexture("./static/ringsheet.png"),
+			},
 		},
 	}
 	return create_game("./static/pretty.json", player_configs[:]) // change me!
@@ -328,6 +353,33 @@ declare_win :: proc(game: ^Game) {
 	game.play_state = .GameOver
 }
 
-// TODO: Animation
-update_animation :: proc(animation: ^Animation, dt: f32) {
+update_animation :: proc {
+	update_animation_a,
+	update_animation_e,
+}
+
+update_animation_e :: proc(entity: ^Entity, dt: f32) {
+	update_animation(&entity.animation, dt)
+}
+
+update_animation_a :: proc(animation_obj: ^AnimationObj, dt: f32) {
+	animation_obj.frame_time += dt
+
+	if animation_obj.frame_time >= animation_obj.frame_duration {
+		animation_obj.frame_time = 0
+		animation_obj.frame += 1
+	}
+
+	if animation_obj.frame >= animation_obj.tile_count {
+		animation_obj.frame = 0
+	}
+}
+
+animation_rect :: proc(animation_obj: AnimationObj) -> rl.Rectangle {
+	return rl.Rectangle {
+		f32(animation_obj.frame % animation_obj.columns) * animation_obj.tile_w,
+		f32(animation_obj.frame / animation_obj.columns) * animation_obj.tile_h,
+		f32(animation_obj.tile_h),
+		f32(animation_obj.tile_w),
+	}
 }

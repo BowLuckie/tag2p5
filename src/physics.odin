@@ -61,6 +61,8 @@ resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector
 }
 
 update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
+	update_animation(e, dt)
+
 	dir, jump := e.movement_callback()
 
 	target_x := dir * MOVE_SPEED
@@ -112,17 +114,34 @@ draw_entity :: proc(e: Entity) {
 		//
 		// rl.DrawTriangle(tip, right, left, e.color)
 
-		rl.DrawCircleGradient(e.center, e.radius * 1.2, e.color, rl.WHITE)
+		// rl.DrawCircleGradient(e.center, e.radius * 1.2, e.color, rl.WHITE)
+		rect := animation_rect(e.animation)
+
+		rl.DrawTexturePro(
+			e.animation.tilesheet,
+			rect,
+			{e.center.x - e.radius, e.center.y - e.radius, e.radius * 2, e.radius * 2},
+			{0, 0},
+			0,
+			e.color,
+		)
+	}
+
+	sign: f32 = 1
+	if e.vel.x < 0 {
+		sign = -1
 	}
 
 	rl.DrawTexturePro(
 		e.tex,
-		{0, 0, f32(e.tex.width), f32(e.tex.height)},
+		{0, 0, f32(e.tex.width) * sign, f32(e.tex.height)},
 		{e.center.x, e.center.y, e.radius * 2, e.radius * 2},
 		{e.radius, e.radius},
 		0,
 		rl.WHITE,
 	)
+
+
 }
 
 // NOTE: last man standing mode?

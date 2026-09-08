@@ -170,7 +170,7 @@ segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tile
 	for pt, i in points {
 		if i >= len(points) - 1 do break
 
-		seg := Segment{pt, points[i + 1]}
+		seg := Segment{pt, points[i + 1], {}}
 
 		append(&segments, seg)
 	}

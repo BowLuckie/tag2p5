@@ -5,28 +5,34 @@ import rl "vendor:raylib"
 Vector2 :: rl.Vector2
 
 Segment :: struct {
-	a, b: Vector2,
+	a, b:  Vector2,
+	bound: rl.Rectangle,
 }
 
 // TODO: power ups? abilitys?
-// this needs some sort of struct that promotes its texture into it
-// so it can be updated by the animation
 Entity :: struct {
 	center:            Vector2,
 	vel:               Vector2,
-	tex:               rl.Texture2D,
 	radius:            f32,
 	color:             rl.Color,
 	grounded:          bool,
 	coyote_time:       f32,
 	tagged:            bool,
+	animation:         AnimationObj,
+	tex:               rl.Texture2D,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
 
-Animation :: struct {
-	frame:          u8,
+AnimationObj :: struct {
+	frame:          uint,
 	frame_time:     f32,
 	frame_duration: f32,
+	tile_count:     uint,
+	columns:        uint,
+	tile_w:         f32,
+	tile_h:         f32,
+	tilesheet:      rl.Texture2D,
+	src_rect:       rl.Rectangle,
 }
 
 GameCamera :: struct {
@@ -76,6 +82,7 @@ PlayerConfig :: struct {
 	center:            Vector2,
 	radius:            f32,
 	color:             rl.Color,
-	movement_callback: proc() -> (dir: f32, jump: bool),
+	animation:         AnimationObj,
 	tex:               rl.Texture2D,
+	movement_callback: proc() -> (dir: f32, jump: bool),
 }
