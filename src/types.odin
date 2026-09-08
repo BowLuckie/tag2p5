@@ -20,6 +20,7 @@ Entity :: struct {
 	tagged:            bool,
 	animation:         AnimationObj,
 	tex:               rl.Texture2D,
+	rotation:          f32,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
 

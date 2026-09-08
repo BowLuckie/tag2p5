@@ -1,5 +1,6 @@
 package tag2p5
 
+import "core:math"
 import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
@@ -86,9 +87,10 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 
 	if e.grounded {
 		e.coyote_time = COYOTE_TIME
-	} else {
-		e.coyote_time -= dt
 	}
+
+	e.rotation += math.to_degrees((e.vel.x * dt) / e.radius)
+	e.coyote_time -= dt
 
 	if jump && e.coyote_time > 0 {
 		e.vel.y = -JUMP_VEL
@@ -97,24 +99,10 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 	}
 }
 
-// TODO: give players sprites and orientation
 draw_entity :: proc(e: Entity) {
-	// rl.DrawCircleV(e.center, e.radius, rl.GREEN)
 	if e.tagged {
-		// gap: f32 = e.radius * 0.3
-		// tri_height: f32 = e.radius * 0.8
-		// tri_width: f32 = e.radius
-		//
-		// base_y := e.center.y - e.radius - gap - tri_height
-		// tip_y := base_y + tri_height
-		//
-		// tip := Vector2{e.center.x, tip_y}
-		// left := Vector2{e.center.x - tri_width / 2, base_y}
-		// right := Vector2{e.center.x + tri_width / 2, base_y}
-		//
-		// rl.DrawTriangle(tip, right, left, e.color)
+		draw_triangle(e)
 
-		// rl.DrawCircleGradient(e.center, e.radius * 1.2, e.color, rl.WHITE)
 		rect := animation_rect(e.animation)
 
 		rl.DrawTexturePro(
@@ -137,14 +125,26 @@ draw_entity :: proc(e: Entity) {
 		{0, 0, f32(e.tex.width) * sign, f32(e.tex.height)},
 		{e.center.x, e.center.y, e.radius * 2, e.radius * 2},
 		{e.radius, e.radius},
-		0,
+		e.rotation,
 		rl.WHITE,
 	)
-
-
 }
 
-// NOTE: last man standing mode?
+draw_triangle :: proc(e: Entity) {
+	gap: f32 = e.radius * 0.3
+	tri_height: f32 = e.radius * 0.8
+	tri_width: f32 = e.radius
+
+	base_y := e.center.y - e.radius - gap - tri_height
+	tip_y := base_y + tri_height
+
+	tip := Vector2{e.center.x, tip_y}
+	left := Vector2{e.center.x - tri_width / 2, base_y}
+	right := Vector2{e.center.x + tri_width / 2, base_y}
+
+	rl.DrawTriangle(tip, right, left, e.color)
+}
+
 entity_tagging :: proc(e1, e2: ^Entity) -> bool {
 	diff := e1.center - e2.center
 	dist := linalg.length(diff)
@@ -152,6 +152,7 @@ entity_tagging :: proc(e1, e2: ^Entity) -> bool {
 	return dist < min_dist
 }
 
+// NOTE: last man standing mode?
 resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
 	game.last_tag -= dt
 	if game.last_tag > 0 {

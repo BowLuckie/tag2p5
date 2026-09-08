@@ -4,8 +4,7 @@ import rl "vendor:raylib"
 
 main :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT, .FULLSCREEN_MODE})
-	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "raylib!")
-	rl.SetWindowMinSize(GAME_WIDTH / 4, GAME_HEIGHT / 4)
+	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "Tag 2.5")
 	game := create_test_game()
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
@@ -16,6 +15,7 @@ main :: proc() {
 
 		update_game(&game, dt)
 		render_game(&game, target)
+
 		draw_screen(target)
 	}
 

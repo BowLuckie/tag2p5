@@ -152,6 +152,16 @@ create_game :: proc(
 }
 
 create_test_game :: proc() -> Game {
+
+	ring_anim := AnimationObj {
+		frame_duration = 0.18,
+		tile_count     = 6,
+		columns        = 6,
+		tile_w         = 64,
+		tile_h         = 64,
+		tilesheet      = rl.LoadTexture("./static/ringsheet.png"),
+	}
+
 	player_configs := [2]PlayerConfig {
 		{
 			center = {600, 300},
@@ -159,14 +169,7 @@ create_test_game :: proc() -> Game {
 			color = rl.BLUE,
 			movement_callback = p1_movement,
 			tex = rl.LoadTexture("./static/blue_p.png"),
-			animation = AnimationObj { 	// TODO: fix ringsheet
-				frame_duration = 0.2,
-				tile_count     = 5,
-				columns        = 1,
-				tile_w         = 24,
-				tile_h         = 24,
-				tilesheet      = rl.LoadTexture("./static/ringsheet.png"),
-			},
+			animation = ring_anim,
 		},
 		{
 			center = {800, 350},
@@ -174,14 +177,7 @@ create_test_game :: proc() -> Game {
 			color = rl.RED,
 			movement_callback = p2_movement,
 			tex = rl.LoadTexture("./static/red_p.png"),
-			animation = AnimationObj {
-				frame_duration = 0.2,
-				tile_count = 5,
-				columns = 1,
-				tile_w = 24,
-				tile_h = 24,
-				tilesheet = rl.LoadTexture("./static/ringsheet.png"),
-			},
+			animation = ring_anim,
 		},
 	}
 	return create_game("./static/pretty.json", player_configs[:]) // change me!
