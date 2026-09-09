@@ -82,6 +82,7 @@ create_game :: proc(
 			animation         = animation,
 			tex               = pc.tex,
 			pid               = pc.pid,
+			triangle_tex      = pc.triangle_tex,
 		}
 	}
 
@@ -169,6 +170,7 @@ create_test_game :: proc() -> Game {
 			radius = PLAYER_RAD,
 			movement_callback = p1_movement,
 			tex = rl.LoadTexture("./static/blue_p.png"),
+			triangle_tex = rl.LoadTexture("./static/triangle_b.png"),
 			animation = player_anim,
 			pid = 0,
 		},
@@ -177,6 +179,7 @@ create_test_game :: proc() -> Game {
 			radius = PLAYER_RAD,
 			movement_callback = p2_movement,
 			tex = rl.LoadTexture("./static/red_p.png"),
+			triangle_tex = rl.LoadTexture("./static/triangle_r.png"),
 			animation = player_anim,
 			pid = 1,
 		},

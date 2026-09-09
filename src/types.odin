@@ -19,8 +19,9 @@ Entity :: struct {
 	tagged:            bool,
 	animation:         AnimationObj,
 	tex:               rl.Texture2D,
+	triangle_tex:      rl.Texture2D,
 	rotation:          f32,
-	pid:              uint,
+	pid:               uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
 
@@ -84,6 +85,7 @@ PlayerConfig :: struct {
 	radius:            f32,
 	animation:         AnimationObj,
 	tex:               rl.Texture2D,
-	pid:              uint,
+	triangle_tex:      rl.Texture2D,
+	pid:               uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }

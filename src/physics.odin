@@ -1,6 +1,5 @@
 package tag2p5
 
-import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:math/rand"
@@ -117,7 +116,7 @@ draw_entity :: proc(e: Entity) {
 
 	if e.tagged {
 		draw_triangle(e)
-		rect := animation_rect(e.animation)
+		// rect := animation_rect(e.animation)
 		// rl.DrawTexturePro(
 		// 	e.animation.tilesheet,
 		// 	rect,
@@ -144,17 +143,9 @@ draw_triangle :: proc(e: Entity) {
 	//
 	// rl.DrawTriangle(tip, right, left, e.color)
 
-	triangle_tex: rl.Texture2D
-
-	if e.pid == 1 {
-		triangle_tex = rl.LoadTexture("./static/triangle_r.png")
-	} else {
-		triangle_tex = rl.LoadTexture("./static/triangle_b.png")
-	}
-
 	rl.DrawTexture(
-		triangle_tex,
-		i32(e.center.x) - (triangle_tex.width / 2) + 1,
+		e.triangle_tex,
+		i32(e.center.x) - (e.triangle_tex.width / 2) + 1,
 		i32(e.center.y) - i32(e.radius * 2.2),
 		rl.WHITE,
 	)
