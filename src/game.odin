@@ -78,7 +78,6 @@ create_game :: proc(
 		if animation.columns == 0 do animation.columns = 5
 		if animation.tile_h == 0 do animation.tile_h = 16
 		if animation.tile_w == 0 do animation.tile_w = 16
-		if animation.tilesheet.id == 0 do animation.tilesheet = rl.LoadTexture("./static/blue_flame.png")
 
 		players[i] = Entity {
 			center            = pc.center,
@@ -95,7 +94,7 @@ create_game :: proc(
 
 	gc := GameCamera {
 		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
-		min_zoom = MIN_ZOOM,
+		min_zoom = 0,
 		max_zoom = MAX_ZOOM,
 		padding = CAM_PADDING,
 	}
@@ -177,7 +176,7 @@ create_test_game :: proc() -> Game {
 		columns        = 1,
 		tile_w         = 64,
 		tile_h         = 64,
-		tilesheet      = rl.LoadTexture("./static/blue_p-Sheet.png"),
+		tilesheet      = {},
 	}
 
 	player_configs := [2]PlayerConfig {

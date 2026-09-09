@@ -11,7 +11,6 @@ Segment :: struct {
 	aabb: Aabb,
 }
 
-
 // TODO: power ups? abilitys?
 Entity :: struct {
 	center:            Vector2,
@@ -91,4 +90,62 @@ PlayerConfig :: struct {
 	triangle_tex:      Texture2D,
 	pid:               uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
+}
+
+TiledMap :: struct {
+	width:      int,
+	height:     int,
+	tilewidth:  int,
+	tileheight: int,
+	layers:     []TiledLayers,
+	tilesets:   []TiledTileset,
+	infinite:   bool,
+}
+
+TiledLayers :: struct {
+	data:   []u32,
+	width:  int,
+	height: int,
+	name:   string,
+}
+
+TiledTileset :: struct {
+	firstgid:   int,
+	columns:    int,
+	image:      string,
+	tilecount:  int,
+	tilewidth:  int,
+	tileheight: int,
+	tiles:      []TiledTileDef,
+}
+
+TiledTileDef :: struct {
+	id:         int,
+	properties: []TiledProperty,
+}
+
+TiledProperty :: struct {
+	value: []TiledPropListItem, // []f64
+}
+
+TiledPropListItem :: struct {
+	value: f64,
+}
+
+TileCollideData :: struct {
+	id:     u32,
+	points: []f64,
+}
+
+Tilemap :: struct {
+	tiles:        []u32,
+	width:        int,
+	height:       int,
+	tile_width:   int,
+	tile_height:  int,
+	tileset_path: string,
+	tileset_tex:  Texture2D,
+	first_gid:    int,
+	columns:      int,
+	collide_data: map[u32][]f64,
 }

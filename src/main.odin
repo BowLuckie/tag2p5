@@ -25,9 +25,9 @@ main :: proc() {
 		}
 	}
 
-	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT, .FULLSCREEN_MODE})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "Tag 2.5")
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(40)
 	game := create_test_game()
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
@@ -39,6 +39,13 @@ main :: proc() {
 
 
 	for !rl.WindowShouldClose() {
+		if rl.GetScreenWidth() < GAME_WIDTH / 2 || rl.GetScreenHeight() < GAME_HEIGHT / 2 {
+			rl.SetWindowSize(
+				max(rl.GetScreenWidth(), GAME_WIDTH / 2),
+				max(rl.GetScreenHeight(), GAME_HEIGHT / 2),
+			)
+		}
+
 		dt := rl.GetFrameTime()
 
 		update_game(&game, dt)

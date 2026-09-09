@@ -10,64 +10,6 @@ FLIPPED_HORIZONTALLY :: 0x80000000
 FLIPPED_VERTICALLY :: 0x40000000
 FLIPPED_DIAGONALLY :: 0x20000000
 
-TiledMap :: struct {
-	width:      int,
-	height:     int,
-	tilewidth:  int,
-	tileheight: int,
-	layers:     []TiledLayers,
-	tilesets:   []TiledTileset,
-	infinite:   bool,
-}
-
-TiledLayers :: struct {
-	data:   []u32,
-	width:  int,
-	height: int,
-	name:   string,
-}
-
-TiledTileset :: struct {
-	firstgid:   int,
-	columns:    int,
-	image:      string,
-	tilecount:  int,
-	tilewidth:  int,
-	tileheight: int,
-	tiles:      []TiledTileDef,
-}
-
-TiledTileDef :: struct {
-	id:         int,
-	properties: []TiledProperty,
-}
-
-TiledProperty :: struct {
-	value: []TiledPropListItem, // []f64
-}
-
-TiledPropListItem :: struct {
-	value: f64,
-}
-
-TileCollideData :: struct {
-	id:     u32,
-	points: []f64,
-}
-
-Tilemap :: struct {
-	tiles:        []u32,
-	width:        int,
-	height:       int,
-	tile_width:   int,
-	tile_height:  int,
-	tileset_path: string,
-	tileset_tex:  Texture2D,
-	first_gid:    int,
-	columns:      int,
-	collide_data: map[u32][]f64,
-}
-
 load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 	jasonb, e := os.read_entire_file(path, context.allocator)
 	if e != nil {return {}, e}
@@ -77,7 +19,6 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 	assert(!tmap.infinite)
 
 	layer := tmap.layers[0]
-
 
 	img_path := fmt.ctprint("./static/", tmap.tilesets[0].image, sep = "")
 	tileset_tex := rl.LoadTexture(img_path)
@@ -94,7 +35,6 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		}
 		collide_data[id] = points[:]
 	}
-
 
 	tilemap = Tilemap {
 		tiles        = layer.data,

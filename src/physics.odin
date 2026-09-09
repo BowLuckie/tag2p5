@@ -27,7 +27,7 @@ ai_callback :: proc() -> (dir: f32, jump: bool) {
 	return
 }
 
-project :: proc(p, a, b: Vector2) -> Vector2 {
+project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
 	ab := b - a
 	t := linalg.dot(p - a, ab) / linalg.dot(ab, ab)
 	t = clamp(t, 0, 1)
@@ -35,32 +35,40 @@ project :: proc(p, a, b: Vector2) -> Vector2 {
 }
 
 // TODO: framerate jumping resolution
-resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
-	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.aabb) do return false, {}
+resolve_circ_seg :: proc "contextless" (e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
+	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.aabb) {
+		return false, {}
+	}
 
 	closest := project(e.center, seg.a, seg.b)
 	diff := e.center - closest
-	dist := linalg.length(diff)
 
-	if dist < e.radius && dist > 0 {
-		n := diff / dist
-		penetration := e.radius - dist
+	dist_sq := diff.x * diff.x + diff.y * diff.y
+	radius_sq := e.radius * e.radius
 
-		if n.y < -MAX_WALKABLE_SLOPE {
-			e.center.y += n.y * penetration
-			if e.vel.y > 0 {
-				e.vel.y = 0
-			}
-		} else {
-			e.center += n * penetration
-			vel_into_surface := linalg.dot(e.vel, n)
-			if vel_into_surface < 0 {
-				e.vel -= n * vel_into_surface
-			}
-		}
-		return true, n
+	if dist_sq >= radius_sq || dist_sq <= 0 {
+		return false, {}
 	}
-	return false, {}
+
+	dist := math.sqrt(dist_sq)
+	inv_dist := 1.0 / dist
+	n := diff * inv_dist
+	penetration := e.radius - dist
+
+	if n.y < -MAX_WALKABLE_SLOPE {
+		e.center.y += n.y * penetration
+		if e.vel.y > 0 {
+			e.vel.y = 0
+		}
+	} else {
+		e.center += n * penetration
+		vel_into_surface := linalg.dot(e.vel, n)
+		if vel_into_surface < 0 {
+			e.vel -= n * vel_into_surface
+		}
+	}
+
+	return true, n
 }
 
 update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
@@ -76,14 +84,21 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 		e.vel.y += GRAVITY * dt
 	}
 
-	e.center += e.vel * dt
+	max_step_dist := e.radius * 0.5
+	total_move := linalg.length(e.vel * dt)
+	num_steps := max(int(math.ceil(total_move / max_step_dist)), 1)
+	step_dt := dt / f32(num_steps)
 
 	e.grounded = false
-	for seg in arena {
-		hit, normal := resolve_circ_seg(e, seg)
-		if hit && normal.y < -MAX_WALKABLE_SLOPE {
-			e.grounded = true
-			e.vel.y = 0
+	for i in 0 ..< num_steps {
+		e.center += e.vel * step_dt
+
+		for seg in arena {
+			hit, normal := resolve_circ_seg(e, seg)
+			if hit && normal.y < -MAX_WALKABLE_SLOPE {
+				e.grounded = true
+				e.vel.y = 0
+			}
 		}
 	}
 
