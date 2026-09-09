@@ -1,4 +1,3 @@
-
 package tag2p5
 
 import "core:fmt"
@@ -33,12 +32,19 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 
 free_game :: proc(game: ^Game) {
 	delete(game.players)
+	delete(game.bg_layers)
 	rl.UnloadTexture(game.tilemap.tileset_tex)
-	delete(game.segments)
 	for btn in game.buttons {
 		rl.UnloadTexture(btn.glyph)
 	}
+	delete(game.segments)
 	delete(game.buttons)
+	delete(game.tilemap.tiles)
+	for _, points in &game.tilemap.collide_data {
+		delete(points)
+	}
+	delete(game.tilemap.collide_data)
+	delete(game.tilemap.tileset_path)
 }
 
 make_button :: proc(
@@ -154,7 +160,6 @@ create_game :: proc(
 }
 
 create_test_game :: proc() -> Game {
-
 	player_anim := AnimationObj {
 		frame_duration = 0.1,
 		tile_count     = 3,

@@ -109,6 +109,18 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		collide_data = collide_data,
 	}
 
+	for ttdef in tmap.tilesets[0].tiles {
+		for prop in ttdef.properties {
+			delete(prop.value)
+		}
+		delete(ttdef.properties)
+	}
+	delete(tmap.tilesets[0].tiles)
+	delete(tmap.layers[0].name)
+	delete(tmap.layers)
+	delete(tmap.tilesets)
+	delete(jasonb)
+
 	return tilemap, nil
 }
 
@@ -132,6 +144,7 @@ generate_segments :: proc(tilemap: Tilemap) -> []Segment {
 			segs := segs_from_cdat(gid, flip_h, flip_v, flip_d, Vector2{f32(x), f32(y)}, tilemap)
 
 			append(&segments, ..segs)
+			delete(segs)
 		}
 	}
 
@@ -176,6 +189,7 @@ segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tile
 		append(&segments, seg)
 	}
 
+	delete(points)
 	return segments[:]
 }
 
