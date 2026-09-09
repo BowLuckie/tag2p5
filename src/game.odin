@@ -67,6 +67,7 @@ create_game :: proc(
 	restart_tex := rl.LoadTexture("./static/restart.png")
 	play_tex := rl.LoadTexture("./static/play.png")
 	pause_tex := rl.LoadTexture("./static/pause.png")
+	mm_tex := rl.LoadTexture("./static/menu.png")
 
 	players := make([]Entity, len(player_configs))
 	for i in 0 ..< len(player_configs) {
@@ -115,7 +116,7 @@ create_game :: proc(
 		make_button(
 			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
 			restart_tex,
-			{.GameOver},
+			{.GameOver, .Paused},
 			restart_game,
 		),
 	)
@@ -131,12 +132,22 @@ create_game :: proc(
 	append(
 		&buttons,
 		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6 + 240, 400, 120},
 			play_tex,
 			{.Paused},
 			proc(game: ^Game) {game.play_state = .Playing},
 		),
 	)
+	append(
+		&buttons,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6 + 120, 400, 120},
+			mm_tex,
+			{.Paused, .GameOver},
+			proc(game: ^Game) {restart_game(game); game.play_state = .MainMenu},
+		),
+	)
+
 
 	layers := make([dynamic]ParallaxLayer)
 	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg3.png"), 0.1})
