@@ -42,7 +42,6 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		height       = layer.height,
 		tile_width   = tmap.tilewidth,
 		tile_height  = tmap.tileheight,
-		tileset_path = tmap.tilesets[0].image,
 		tileset_tex  = tileset_tex,
 		first_gid    = tmap.tilesets[0].firstgid,
 		columns      = tmap.tilesets[0].columns,
@@ -56,6 +55,7 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		delete(ttdef.properties)
 	}
 	delete(tmap.tilesets[0].tiles)
+	delete(tmap.tilesets[0].image)
 	delete(tmap.layers[0].name)
 	delete(tmap.layers)
 	delete(tmap.tilesets)

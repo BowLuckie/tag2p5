@@ -34,7 +34,6 @@ project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
 	return a + ab * t
 }
 
-// TODO: framerate jumping resolution
 resolve_circ_seg :: proc "contextless" (e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
 	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.aabb) {
 		return false, {}

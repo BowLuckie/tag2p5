@@ -31,29 +31,49 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 }
 
 free_game :: proc(game: ^Game) {
-	delete(game.players)
-	delete(game.bg_layers)
-	rl.UnloadTexture(game.tilemap.tileset_tex)
-	for btn in game.buttons {
-		rl.UnloadTexture(btn.glyph)
-	}
-	delete(game.segments)
-	delete(game.buttons)
-	delete(game.tilemap.tiles)
+	// tilemap
 	for _, points in &game.tilemap.collide_data {
 		delete(points)
 	}
 	delete(game.tilemap.collide_data)
-	delete(game.tilemap.tileset_path)
+	delete(game.tilemap.tiles)
+	rl.UnloadTexture(game.tilemap.tileset_tex)
+
+	// players
+	for p in game.players {
+		rl.UnloadTexture(p.tex)
+		rl.UnloadTexture(p.triangle_tex)
+	}
+	delete(game.players)
+
+	// parallax layers
+	for layer in game.bg_layers {
+		rl.UnloadTexture(layer.tex)
+	}
+	delete(game.bg_layers)
+
+	// segments
+	delete(game.segments)
+
+	// scenes — unload shared button textures once, then free slices
+	seen := make(map[u32]bool)
+	for state, scene in &game.scenes {
+		_ = state
+		for btn in scene.buttons {
+			if _, found := seen[btn.glyph.id]; !found {
+				rl.UnloadTexture(btn.glyph)
+				seen[btn.glyph.id] = true
+			}
+		}
+		delete(scene.buttons)
+		delete(scene.labels)
+	}
+	delete(game.scenes)
+	delete(seen)
 }
 
-make_button :: proc(
-	rect: rl.Rectangle,
-	glyph: Texture2D,
-	states: bit_set[PlayState],
-	on_click: proc(game: ^Game),
-) -> Button {
-	return Button{rect, glyph, states, on_click}
+make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^Game)) -> Button {
+	return Button{rect, glyph, on_click}
 }
 
 create_game :: proc(
@@ -100,59 +120,130 @@ create_game :: proc(
 	}
 
 
-	buttons := make([dynamic]Button)
-	append(
-		&buttons,
-		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-			play_tex,
-			{.MainMenu},
-			proc(game: ^Game) {game.play_state = .Playing},
-		),
-	)
-	append(
-		&buttons,
-		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6, 400, 120},
-			restart_tex,
-			{.GameOver, .Paused},
-			restart_game,
-		),
-	)
-	append(
-		&buttons,
-		make_button(
-			{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 128, 128},
-			pause_tex,
-			{.Playing},
-			proc(game: ^Game) {game.play_state = .Paused},
-		),
-	)
-	append(
-		&buttons,
-		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6 + 240, 400, 120},
-			play_tex,
-			{.Paused},
-			proc(game: ^Game) {game.play_state = .Playing},
-		),
-	)
-	append(
-		&buttons,
-		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT * .6 + 120, 400, 120},
-			mm_tex,
-			{.Paused, .GameOver},
-			proc(game: ^Game) {restart_game(game); game.play_state = .MainMenu},
-		),
-	)
-
-
 	layers := make([dynamic]ParallaxLayer)
 	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg3.png"), 0.1})
 	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg2.png"), 0.3})
 	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg.png"), 0.9})
 	append(&layers, ParallaxLayer{rl.LoadTexture("./static/filler.png"), 0})
+
+	// main menu buttons
+	mm_b := make([]Button, 1)
+	mm_b[0] = make_button(
+		{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 120, 400, 120},
+		play_tex,
+		proc(game: ^Game) {game.play_state = .Playing},
+	)
+
+	// main menu labels
+	mm_l := make([]Label, 1)
+	mm_l[0] = Label {
+		text      = fmt.ctprint("tag 2.5"),
+		font_size = 100,
+		posx      = GAME_WIDTH / 2,
+		posy      = GAME_HEIGHT / 2,
+		color     = rl.BLACK,
+	}
+
+	main_menu := Scene {
+		scene   = .MainMenu,
+		buttons = mm_b,
+		labels  = mm_l,
+	}
+
+	pause_button := make([]Button, 1)
+	pause_button[0] = make_button(
+		{GAME_WIDTH / 2, GAME_HEIGHT * 0.9, 128, 128},
+		pause_tex,
+		proc(game: ^Game) {game.play_state = .Paused},
+	)
+
+	playing := Scene {
+		scene   = .Playing,
+		buttons = pause_button,
+		labels  = nil,
+	}
+
+	// pause menu buttons
+	pm_b := make([dynamic]Button)
+	append(
+		&pm_b,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 80, 400, 120},
+			play_tex,
+			proc(game: ^Game) {game.play_state = .Playing},
+		),
+	)
+	append(
+		&pm_b,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 200, 400, 120},
+			restart_tex,
+			restart_game,
+		),
+	)
+	append(
+		&pm_b,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 320, 400, 120},
+			mm_tex,
+			proc(game: ^Game) {restart_game(game); game.play_state = .MainMenu},
+		),
+	)
+
+	// pause menu labels
+	pm_l := make([]Label, 1)
+	pm_l[0] = Label {
+		text      = fmt.ctprintf("Paused"),
+		font_size = 100,
+		posx      = GAME_WIDTH / 2,
+		posy      = GAME_HEIGHT / 2,
+		color     = rl.WHITE,
+	}
+
+	pause_menu := Scene {
+		scene   = .Paused,
+		buttons = pm_b[:],
+		labels  = pm_l,
+	}
+
+	go_b := make([dynamic]Button, 2)
+	append(
+		&go_b,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 80, 400, 120},
+			restart_tex,
+			restart_game,
+		),
+	)
+	append(
+		&go_b,
+		make_button(
+			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 200, 400, 120},
+			mm_tex,
+			proc(game: ^Game) {restart_game(game); game.play_state = .MainMenu},
+		),
+	)
+
+	go_l := make([]Label, 1)
+	go_l[0] = Label {
+		text      = fmt.ctprintf("Game Over"),
+		font_size = 100,
+		posx      = GAME_WIDTH / 2,
+		posy      = GAME_HEIGHT / 2,
+		color     = rl.WHITE,
+	}
+
+	game_over := Scene {
+		scene   = .GameOver,
+		buttons = go_b[:],
+		labels  = go_l,
+	}
+
+	scenes := make(map[GameState]Scene)
+	scenes[.MainMenu] = main_menu
+	scenes[.Playing] = playing
+	scenes[.Paused] = pause_menu
+	scenes[.GameOver] = game_over
 
 	game := Game {
 		gc         = gc,
@@ -162,8 +253,8 @@ create_game :: proc(
 		last_tag   = 0,
 		game_time  = game_time,
 		play_state = .MainMenu,
-		buttons    = buttons[:],
 		bg_layers  = layers[:],
+		scenes     = scenes,
 	}
 
 	return game
@@ -211,7 +302,6 @@ restart_game :: proc(game: ^Game) {
 
 update_game :: proc(game: ^Game, dt: f32) {
 	if rl.IsMouseButtonPressed(.LEFT) {
-		fmt.print(mouse_pos())
 		handle_click(game, mouse_pos())
 	}
 
@@ -239,8 +329,8 @@ update_game :: proc(game: ^Game, dt: f32) {
 }
 
 handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
-	for button in game.buttons {
-		if rl.CheckCollisionPointRec(mouse_pos, button.rect) && game.play_state in button.states {
+	for button in game.scenes[game.play_state].buttons {
+		if rl.CheckCollisionPointRec(mouse_pos, button.rect) {
 			button.on_click(game)
 		}
 	}
@@ -249,13 +339,20 @@ handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
 
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
-		rl.DrawLineEx(seg.a, seg.b, 3, rl.BLACK)
+		rl.DrawLineEx(seg.a, seg.b, 1, rl.BLACK)
 	}
 }
 
 render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	rl.BeginTextureMode(target)
+	defer rl.EndTextureMode()
 	rl.ClearBackground(SKY_COLOR)
+
+	if game.play_state == .MainMenu {
+		draw_scene(game)
+		rl.EndTextureMode()
+		return
+	}
 
 	draw_parallax_layers(game^)
 
@@ -276,20 +373,7 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 	}
 	rl.DrawText(fmt.ctprintf("%d", t_int), GAME_WIDTH / 2, 60, 80, t_color)
 
-	if game.play_state == .GameOver {
-		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
-		draw_text("Game Over!", PosX = GAME_WIDTH / 2, PosY = GAME_HEIGHT / 2)
-	} else if game.play_state == .Paused {
-		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.Fade(rl.BLACK, 0.3))
-		draw_text("Paused", PosX = GAME_WIDTH / 2, PosY = GAME_HEIGHT / 2)
-	} else if game.play_state == .MainMenu {
-		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.WHITE)
-		draw_text("Tag 2.5", PosX = GAME_WIDTH / 2, PosY = GAME_HEIGHT / 2)
-	}
-
-	draw_buttons(game)
-
-	rl.EndTextureMode()
+	draw_scene(game)
 }
 
 draw_parallax_layers :: proc(game: Game) {
@@ -331,39 +415,60 @@ draw_parallax_layers :: proc(game: Game) {
 
 draw_text :: proc(
 	text: cstring,
-	font_size: i32 = 100,
+	font_size: uint = 100,
 	PosX, PosY: i32,
 	color: rl.Color = rl.BLACK,
 ) {
-	text_width := rl.MeasureText(text, font_size)
-	rl.DrawText(text, PosX - text_width / 2, PosY - font_size / 2, font_size, color)
+	text_width := rl.MeasureText(text, i32(font_size))
+	rl.DrawText(text, PosX - text_width / 2, PosY - i32(font_size) / 2, i32(font_size), color)
 }
 
-draw_buttons :: proc(game: ^Game) {
-	for btn in game.buttons {
-		if game.play_state in btn.states {
-			tex_w := f32(btn.glyph.width)
-			tex_h := f32(btn.glyph.height)
-
-			scale := min(btn.rect.width / tex_w, btn.rect.height / tex_h)
-			draw_w := tex_w * scale
-			draw_h := tex_h * scale
-
-			dest := rl.Rectangle {
-				btn.rect.x + (btn.rect.width - draw_w) / 2,
-				btn.rect.y + (btn.rect.height - draw_h) / 2,
-				draw_w,
-				draw_h,
-			}
-
-			src := rl.Rectangle{0, 0, tex_w, tex_h}
-			rl.DrawTexturePro(btn.glyph, src, dest, {0, 0}, 0, rl.WHITE)
+draw_scene :: proc(game: ^Game) {
+	scene, ok := game.scenes[game.play_state]
+	if !ok {
+		when ODIN_DEBUG {
+			fmt.println(game.scenes)
 		}
+		fmt.panicf("play state does not have a corrosponding theme! %s", game.play_state)
+	}
+
+	if game.play_state == .MainMenu {
+		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.WHITE)
+	} else if game.play_state != .Playing {
+		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (rl.Color{0, 0, 0, 100}))
+	}
+
+	draw_buttons(scene.buttons)
+	draw_labels(scene.labels)
+}
+
+draw_buttons :: proc(buttons: []Button) {
+	for btn in buttons {
+		tex_w := f32(btn.glyph.width)
+		tex_h := f32(btn.glyph.height)
+
+		scale := min(btn.rect.width / tex_w, btn.rect.height / tex_h)
+		draw_w := tex_w * scale
+		draw_h := tex_h * scale
+
+		dest := rl.Rectangle {
+			btn.rect.x + (btn.rect.width - draw_w) / 2,
+			btn.rect.y + (btn.rect.height - draw_h) / 2,
+			draw_w,
+			draw_h,
+		}
+
+		src := rl.Rectangle{0, 0, tex_w, tex_h}
+		rl.DrawTexturePro(btn.glyph, src, dest, {0, 0}, 0, rl.WHITE)
 	}
 }
 
+draw_labels :: proc(labels: []Label) {
+	for lbl in labels {
+		draw_text(lbl.text, lbl.font_size, lbl.posx, lbl.posy, lbl.color)
+	}
+}
 
-// TODO: improve game over screen
 declare_win :: proc(game: ^Game) {
 	for player in game.players {
 		if !player.tagged {

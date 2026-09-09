@@ -25,9 +25,10 @@ main :: proc() {
 		}
 	}
 
-	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "Tag 2.5")
-	rl.SetTargetFPS(40)
+	rl.SetTargetFPS(60)
+
 	game := create_test_game()
 
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)

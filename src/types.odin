@@ -50,7 +50,7 @@ GameMode :: enum {
 	Normal,
 }
 
-PlayState :: enum {
+GameState :: enum {
 	MainMenu,
 	Playing,
 	Paused,
@@ -65,9 +65,9 @@ Game :: struct {
 	last_tag:   f32,
 	mode:       GameMode,
 	game_time:  f32,
-	play_state: PlayState,
-	buttons:    []Button,
+	play_state: GameState,
 	bg_layers:  []ParallaxLayer,
+	scenes:     map[GameState]Scene,
 }
 
 ParallaxLayer :: struct {
@@ -78,7 +78,6 @@ ParallaxLayer :: struct {
 Button :: struct {
 	rect:     rl.Rectangle,
 	glyph:    Texture2D,
-	states:   bit_set[PlayState],
 	on_click: proc(game: ^Game),
 }
 
@@ -138,14 +137,25 @@ TileCollideData :: struct {
 }
 
 Tilemap :: struct {
-	tiles:        []u32,
-	width:        int,
-	height:       int,
-	tile_width:   int,
-	tile_height:  int,
-	tileset_path: string,
-	tileset_tex:  Texture2D,
-	first_gid:    int,
-	columns:      int,
-	collide_data: map[u32][]f64,
+	tiles:         []u32,
+	width, height: int,
+	tile_width:    int,
+	tile_height:   int,
+	tileset_tex:   Texture2D,
+	first_gid:     int,
+	columns:       int,
+	collide_data:  map[u32][]f64,
+}
+
+Label :: struct {
+	text:       cstring,
+	font_size:  uint,
+	posx, posy: i32,
+	color:      rl.Color,
+}
+
+Scene :: struct {
+	scene:   GameState,
+	buttons: []Button,
+	labels:  []Label,
 }
