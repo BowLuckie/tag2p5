@@ -43,7 +43,7 @@ free_game :: proc(game: ^Game) {
 
 make_button :: proc(
 	rect: rl.Rectangle,
-	glyph: rl.Texture2D,
+	glyph: Texture2D,
 	states: bit_set[PlayState],
 	on_click: proc(game: ^Game),
 ) -> Button {

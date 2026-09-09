@@ -1,5 +1,6 @@
 package tag2p5
 
+
 import "core:encoding/json"
 import "core:fmt"
 import "core:os"
@@ -61,7 +62,7 @@ Tilemap :: struct {
 	tile_width:   int,
 	tile_height:  int,
 	tileset_path: string,
-	tileset_tex:  rl.Texture2D,
+	tileset_tex:  Texture2D,
 	first_gid:    int,
 	columns:      int,
 	collide_data: map[u32][]f64,
@@ -170,7 +171,7 @@ segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tile
 	for pt, i in points {
 		if i >= len(points) - 1 do break
 
-		seg := Segment{pt, points[i + 1], {}}
+		seg := make_segment(pt, points[i + 1], 40)
 
 		append(&segments, seg)
 	}
@@ -231,4 +232,12 @@ get_src_rect :: proc(tmap: Tilemap, gid: u32) -> rl.Rectangle {
 		width = f32(tmap.tile_width),
 		height = f32(tmap.tile_height),
 	}
+}
+
+make_segment :: proc(a, b: rl.Vector2, pad: f32) -> Segment {
+	min_x := min(a.x, b.x) - pad
+	max_x := max(a.x, b.x) + pad
+	min_y := min(a.y, b.y) - pad
+	max_y := max(a.y, b.y) + pad
+	return Segment{a = a, b = b, aabb = {min_x, min_y, max_x - min_x, max_y - min_y}}
 }

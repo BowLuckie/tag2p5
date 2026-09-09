@@ -34,8 +34,10 @@ project :: proc(p, a, b: Vector2) -> Vector2 {
 	return a + ab * t
 }
 
-// TODO: Aabb and framerate jumping resolution
+// TODO: framerate jumping resolution
 resolve_circ_seg :: proc(e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
+	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.aabb) do return false, {}
+
 	closest := project(e.center, seg.a, seg.b)
 	diff := e.center - closest
 	dist := linalg.length(diff)
@@ -97,6 +99,18 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 		e.grounded = false
 		e.coyote_time = 0
 	}
+}
+
+aabb :: proc(a, b: Aabb) -> bool {
+	return rl.CheckCollisionRecs(a, b)
+}
+
+aabb_pt :: proc(p: rl.Vector2, r: Aabb) -> bool {
+	return rl.CheckCollisionPointRec(p, r)
+}
+
+aabb_circ :: proc(center: rl.Vector2, radius: f32, r: Aabb) -> bool {
+	return rl.CheckCollisionCircleRec(center, radius, r)
 }
 
 draw_entity :: proc(e: Entity) {

@@ -3,11 +3,14 @@ package tag2p5
 import rl "vendor:raylib"
 
 Vector2 :: rl.Vector2
+Texture2D :: rl.Texture2D
+Aabb :: rl.Rectangle
 
 Segment :: struct {
-	a, b:  Vector2,
-	bound: rl.Rectangle,
+	a, b: Vector2,
+	aabb: Aabb,
 }
+
 
 // TODO: power ups? abilitys?
 Entity :: struct {
@@ -18,8 +21,8 @@ Entity :: struct {
 	coyote_time:       f32,
 	tagged:            bool,
 	animation:         AnimationObj,
-	tex:               rl.Texture2D,
-	triangle_tex:      rl.Texture2D,
+	tex:               Texture2D,
+	triangle_tex:      Texture2D,
 	rotation:          f32,
 	pid:               uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
@@ -33,7 +36,7 @@ AnimationObj :: struct {
 	columns:        uint,
 	tile_w:         f32,
 	tile_h:         f32,
-	tilesheet:      rl.Texture2D,
+	tilesheet:      Texture2D,
 	src_rect:       rl.Rectangle,
 }
 
@@ -69,13 +72,13 @@ Game :: struct {
 }
 
 ParallaxLayer :: struct {
-	tex:    rl.Texture2D,
+	tex:    Texture2D,
 	factor: f32,
 }
 
 Button :: struct {
 	rect:     rl.Rectangle,
-	glyph:    rl.Texture2D,
+	glyph:    Texture2D,
 	states:   bit_set[PlayState],
 	on_click: proc(game: ^Game),
 }
@@ -84,8 +87,8 @@ PlayerConfig :: struct {
 	center:            Vector2,
 	radius:            f32,
 	animation:         AnimationObj,
-	tex:               rl.Texture2D,
-	triangle_tex:      rl.Texture2D,
+	tex:               Texture2D,
+	triangle_tex:      Texture2D,
 	pid:               uint,
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
