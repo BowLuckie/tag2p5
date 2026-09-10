@@ -27,6 +27,7 @@ Entity :: struct {
 	movement_callback: proc() -> (dir: f32, jump: bool),
 }
 
+// currently not used in game
 AnimationObj :: struct {
 	frame:          uint,
 	frame_time:     f32,

@@ -127,57 +127,6 @@ aabb_circ :: proc(center: rl.Vector2, radius: f32, r: Aabb) -> bool {
 	return rl.CheckCollisionCircleRec(center, radius, r)
 }
 
-draw_entity :: proc(e: Entity) {
-	sign: f32 = 1
-	if e.vel.x < 0 {
-		sign = -1
-	}
-
-	rl.DrawTexturePro(
-		e.tex,
-		{0, 0, f32(e.tex.width) * sign, f32(e.tex.height)},
-		{e.center.x, e.center.y, e.radius * 2, e.radius * 2},
-		{e.radius, e.radius},
-		e.rotation,
-		rl.WHITE,
-	)
-
-	if e.tagged {
-		draw_triangle(e)
-		// rect := animation_rect(e.animation)
-		// rl.DrawTexturePro(
-		// 	e.animation.tilesheet,
-		// 	rect,
-		// 	{e.center.x, e.center.y, e.radius * 4, e.radius * 4},
-		// 	{e.radius * 2, e.radius * 2},
-		// 	0,
-		// 	rl.WHITE,
-		// )
-	}
-
-}
-
-draw_triangle :: proc(e: Entity) {
-	// gap: f32 = e.radius * 0.3
-	// tri_height: f32 = e.radius * 0.8
-	// tri_width: f32 = e.radius
-	//
-	// base_y := e.center.y - e.radius - gap - tri_height
-	// tip_y := base_y + tri_height
-	//
-	// tip := Vector2{e.center.x, tip_y}
-	// left := Vector2{e.center.x - tri_width / 2, base_y}
-	// right := Vector2{e.center.x + tri_width / 2, base_y}
-	//
-	// rl.DrawTriangle(tip, right, left, e.color)
-
-	rl.DrawTexture(
-		e.triangle_tex,
-		i32(e.center.x) - (e.triangle_tex.width / 2) + 1,
-		i32(e.center.y) - i32(e.radius * 2.2),
-		rl.WHITE,
-	)
-}
 
 entity_tagging :: proc(e1, e2: ^Entity) -> bool {
 	diff := e1.center - e2.center

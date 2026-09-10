@@ -206,11 +206,12 @@ create_game :: proc(
 		labels  = pm_l,
 	}
 
+	// game over menu buttons
 	go_b := make([dynamic]Button, 2)
 	append(
 		&go_b,
 		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 80, 400, 120},
+			{GAME_WIDTH / 4 - 200, GAME_HEIGHT / 2 + 80, 400, 120},
 			restart_tex,
 			restart_game,
 		),
@@ -218,17 +219,18 @@ create_game :: proc(
 	append(
 		&go_b,
 		make_button(
-			{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 200, 400, 120},
+			{GAME_WIDTH / 4 - 200, GAME_HEIGHT / 2 + 200, 400, 120},
 			mm_tex,
 			proc(game: ^Game) {restart_game(game); game.play_state = .MainMenu},
 		),
 	)
 
+	// game over menu labels
 	go_l := make([]Label, 1)
 	go_l[0] = Label {
 		text      = fmt.ctprintf("Game Over"),
 		font_size = 100,
-		posx      = GAME_WIDTH / 2,
+		posx      = GAME_WIDTH / 4,
 		posy      = GAME_HEIGHT / 2,
 		color     = rl.WHITE,
 	}
@@ -261,7 +263,7 @@ create_game :: proc(
 }
 
 create_test_game :: proc() -> Game {
-	player_anim := AnimationObj {
+	player_anim := AnimationObj { 	// currently not using
 		frame_duration = 0.1,
 		tile_count     = 3,
 		columns        = 1,
@@ -336,6 +338,56 @@ handle_click :: proc(game: ^Game, mouse_pos: Vector2) {
 	}
 }
 
+draw_entity :: proc(e: Entity) {
+	sign: f32 = 1
+	if e.vel.x < 0 {
+		sign = -1
+	}
+
+	rl.DrawTexturePro(
+		e.tex,
+		{0, 0, f32(e.tex.width) * sign, f32(e.tex.height)},
+		{e.center.x, e.center.y, e.radius * 2, e.radius * 2},
+		{e.radius, e.radius},
+		e.rotation,
+		rl.WHITE,
+	)
+
+	if e.tagged {
+		draw_triangle(e)
+		// rect := animation_rect(e.animation)
+		// rl.DrawTexturePro(
+		// 	e.animation.tilesheet,
+		// 	rect,
+		// 	{e.center.x, e.center.y, e.radius * 4, e.radius * 4},
+		// 	{e.radius * 2, e.radius * 2},
+		// 	0,
+		// 	rl.WHITE,
+		// )
+	}
+}
+
+draw_triangle :: proc(e: Entity) {
+	// gap: f32 = e.radius * 0.3
+	// tri_height: f32 = e.radius * 0.8
+	// tri_width: f32 = e.radius
+	//
+	// base_y := e.center.y - e.radius - gap - tri_height
+	// tip_y := base_y + tri_height
+	//
+	// tip := Vector2{e.center.x, tip_y}
+	// left := Vector2{e.center.x - tri_width / 2, base_y}
+	// right := Vector2{e.center.x + tri_width / 2, base_y}
+	//
+	// rl.DrawTriangle(tip, right, left, e.color)
+
+	rl.DrawTexture(
+		e.triangle_tex,
+		i32(e.center.x) - (e.triangle_tex.width / 2) + 1,
+		i32(e.center.y) - i32(e.radius * 2.2),
+		rl.WHITE,
+	)
+}
 
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
@@ -436,6 +488,44 @@ draw_scene :: proc(game: ^Game) {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.WHITE)
 	} else if game.play_state != .Playing {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (rl.Color{0, 0, 0, 100}))
+	}
+
+	if game.play_state == .GameOver {
+		rl.DrawRectanglePro(
+			{GAME_WIDTH * 0.8, GAME_HEIGHT * 0.8, GAME_WIDTH * 2, GAME_HEIGHT},
+			{GAME_WIDTH / 2, GAME_HEIGHT / 2},
+			-75,
+			rl.WHITE,
+		)
+
+		e: Entity
+
+		assert(game.mode == .Normal)
+		for player in game.players {
+			if player.tagged == true {
+				e = player
+				break
+			}
+
+			fmt.println("no tagged player found!")
+		}
+
+		rl.DrawTexturePro(
+			e.tex,
+			{0, 0, f32(e.tex.width), f32(e.tex.height)},
+			{GAME_WIDTH * 0.65, GAME_HEIGHT / 2 - e.radius * 20, e.radius * 60, e.radius * 60},
+			{0, 0},
+			0,
+			rl.WHITE,
+		)
+
+		rl.DrawText(
+			fmt.ctprintf("Player %d lost!", e.pid + 1),
+			GAME_WIDTH * 0.75 - 250,
+			GAME_HEIGHT * 0.25 - 100,
+			125,
+			rl.BLACK,
+		)
 	}
 
 	draw_buttons(scene.buttons)
