@@ -84,10 +84,10 @@ create_game :: proc(
 	tilemap, err := load_tilemap(tilemap_path)
 	if err != nil {fmt.panicf("failed to load tilemap %s", err)}
 
-	restart_tex := rl.LoadTexture("./static/restart.png")
-	play_tex := rl.LoadTexture("./static/play.png")
-	pause_tex := rl.LoadTexture("./static/pause.png")
-	mm_tex := rl.LoadTexture("./static/menu.png")
+	restart_tex := rl.LoadTexture(STATIC_DIR + "restart.png")
+	play_tex := rl.LoadTexture(STATIC_DIR + "play.png")
+	pause_tex := rl.LoadTexture(STATIC_DIR + "pause.png")
+	mm_tex := rl.LoadTexture(STATIC_DIR + "menu.png")
 
 	players := make([]Entity, len(player_configs))
 	for i in 0 ..< len(player_configs) {
@@ -121,10 +121,10 @@ create_game :: proc(
 
 
 	layers := make([dynamic]ParallaxLayer)
-	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg3.png"), 0.1})
-	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg2.png"), 0.3})
-	append(&layers, ParallaxLayer{rl.LoadTexture("./static/bg.png"), 0.9})
-	append(&layers, ParallaxLayer{rl.LoadTexture("./static/filler.png"), 0})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg3.png"), 0.6})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg2.png"), 0.8})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg.png"), 0.99})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "filler.png"), 0})
 
 	// main menu buttons
 	mm_b := make([]Button, 1)
@@ -277,8 +277,8 @@ create_test_game :: proc() -> Game {
 			center = {600, 300},
 			radius = PLAYER_RAD,
 			movement_callback = p1_movement,
-			tex = rl.LoadTexture("./static/blue_p.png"),
-			triangle_tex = rl.LoadTexture("./static/triangle_b.png"),
+			tex = rl.LoadTexture(STATIC_DIR + "blue_p.png"),
+			triangle_tex = rl.LoadTexture(STATIC_DIR + "triangle_b.png"),
 			animation = player_anim,
 			pid = 0,
 		},
@@ -286,14 +286,14 @@ create_test_game :: proc() -> Game {
 			center = {800, 400},
 			radius = PLAYER_RAD,
 			movement_callback = p2_movement,
-			tex = rl.LoadTexture("./static/red_p.png"),
-			triangle_tex = rl.LoadTexture("./static/triangle_r.png"),
+			tex = rl.LoadTexture(STATIC_DIR + "red_p.png"),
+			triangle_tex = rl.LoadTexture(STATIC_DIR + "triangle_r.png"),
 			animation = player_anim,
 			pid = 1,
 		},
 	}
 
-	return create_game("./static/pretty.json", player_configs[:]) // change me!
+	return create_game(STATIC_DIR + "pretty.json", player_configs[:])
 }
 
 restart_game :: proc(game: ^Game) {
@@ -326,7 +326,7 @@ update_game :: proc(game: ^Game, dt: f32) {
 	game.game_time -= dt
 	if game.game_time < 0 {
 		game.game_time = 0
-		declare_win(game)
+		game.play_state = .GameOver
 	}
 }
 
@@ -402,7 +402,6 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 
 	if game.play_state == .MainMenu {
 		draw_scene(game)
-		rl.EndTextureMode()
 		return
 	}
 
@@ -559,16 +558,6 @@ draw_labels :: proc(labels: []Label) {
 	}
 }
 
-declare_win :: proc(game: ^Game) {
-	for player in game.players {
-		if !player.tagged {
-			fmt.printf("player %s won!", player.pid + 1)
-		}
-	}
-
-	game.play_state = .GameOver
-}
-
 update_animation :: proc {
 	update_animation_a,
 	update_animation_e,
@@ -595,7 +584,7 @@ animation_rect :: proc(animation_obj: AnimationObj) -> rl.Rectangle {
 	return rl.Rectangle {
 		f32(animation_obj.frame % animation_obj.columns) * animation_obj.tile_w,
 		f32(animation_obj.frame / animation_obj.columns) * animation_obj.tile_h,
-		f32(animation_obj.tile_h),
 		f32(animation_obj.tile_w),
+		f32(animation_obj.tile_h),
 	}
 }

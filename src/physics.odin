@@ -19,7 +19,6 @@ p2_movement :: proc() -> (dir: f32, jump: bool) {
 	return dir, rl.IsKeyDown(.UP)
 }
 
-// TODO: improve ai
 ai_callback :: proc() -> (dir: f32, jump: bool) {
 	dir = f32(rand.uint32_max(5)) - 2
 	jump_c := rand.uint32_max(1000)
@@ -71,7 +70,7 @@ resolve_circ_seg :: proc "contextless" (e: ^Entity, seg: Segment) -> (hit: bool,
 }
 
 update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
-	update_animation(e, dt)
+	// update_animation(e, dt)
 
 	dir, jump := e.movement_callback()
 

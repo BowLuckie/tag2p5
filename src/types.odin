@@ -11,7 +11,6 @@ Segment :: struct {
 	aabb: Aabb,
 }
 
-// TODO: power ups? abilitys?
 Entity :: struct {
 	center:            Vector2,
 	vel:               Vector2,

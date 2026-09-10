@@ -2,6 +2,8 @@ package tag2p5
 
 import rl "vendor:raylib"
 
+STATIC_DIR :: #config(STATIC_DIR, "./static/")
+
 GAME_WIDTH :: 2880
 GAME_HEIGHT :: 1920
 
@@ -19,7 +21,7 @@ GROUND_SNAP_DIST :: 4
 
 COYOTE_TIME :: 0.2
 TAG_IMMUNITY :: 1.0
-GAME_TIME :: 1
+GAME_TIME :: 60
 
 PLAYER_RAD :: 15
 HAIRLINE_OVERLAP :: 0.9
