@@ -32,12 +32,12 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 
 free_game :: proc(game: ^Game) {
 	// tilemap
-	for _, points in &game.tilemap.collide_data {
+	for _, points in &game.arena.tilemap.collide_data {
 		delete(points)
 	}
-	delete(game.tilemap.collide_data)
-	delete(game.tilemap.tiles)
-	rl.UnloadTexture(game.tilemap.tileset_tex)
+	delete(game.arena.tilemap.collide_data)
+	delete(game.arena.tilemap.tiles)
+	rl.UnloadTexture(game.arena.tilemap.tileset_tex)
 
 	// players
 	for p in game.players {
@@ -47,13 +47,13 @@ free_game :: proc(game: ^Game) {
 	delete(game.players)
 
 	// parallax layers
-	for layer in game.bg_layers {
+	for layer in game.arena.bg_layers {
 		rl.UnloadTexture(layer.tex)
 	}
-	delete(game.bg_layers)
+	delete(game.arena.bg_layers)
 
 	// segments
-	delete(game.segments)
+	delete(game.arena.segments)
 
 	// scenes — unload shared button textures once, then free slices
 	seen := make(map[u32]bool)
@@ -76,14 +76,45 @@ make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^
 	return Button{rect, glyph, on_click}
 }
 
-create_game :: proc(
-	tilemap_path: string,
-	player_configs: []PlayerConfig,
-	game_time: f32 = GAME_TIME,
-) -> Game {
+create_arena :: proc(tilemap_path: string, pspawns: [2]Vector2) -> Arena {
 	tilemap, err := load_tilemap(tilemap_path)
 	if err != nil {fmt.panicf("failed to load tilemap %s", err)}
 
+	layers := make([dynamic]ParallaxLayer)
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg3.png"), 0.6})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg2.png"), 0.8})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg.png"), 0.99})
+	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "filler.png"), 0})
+
+	return Arena {
+		tilemap = tilemap,
+		segments = generate_segments(tilemap),
+		bg_layers = layers[:],
+		pspawns = pspawns,
+	}
+}
+
+free_arena :: proc(arena: ^Arena) {
+	for _, points in &arena.tilemap.collide_data {
+		delete(points)
+	}
+	delete(arena.tilemap.collide_data)
+	delete(arena.tilemap.tiles)
+	rl.UnloadTexture(arena.tilemap.tileset_tex)
+
+	for layer in arena.bg_layers {
+		rl.UnloadTexture(layer.tex)
+	}
+	delete(arena.bg_layers)
+
+	delete(arena.segments)
+}
+
+create_game :: proc(
+	arena: Arena,
+	player_configs: []PlayerConfig,
+	game_time: f32 = GAME_TIME,
+) -> Game {
 	restart_tex := rl.LoadTexture(STATIC_DIR + "restart.png")
 	play_tex := rl.LoadTexture(STATIC_DIR + "play.png")
 	pause_tex := rl.LoadTexture(STATIC_DIR + "pause.png")
@@ -99,8 +130,14 @@ create_game :: proc(
 		if animation.tile_h == 0 do animation.tile_h = 16
 		if animation.tile_w == 0 do animation.tile_w = 16
 
+		// Use arena pspawn if available, else {0, 0}
+		center := Vector2{0, 0}
+		if i < len(arena.pspawns) {
+			center = arena.pspawns[i]
+		}
+
 		players[i] = Entity {
-			center            = pc.center,
+			center            = center,
 			vel               = 0,
 			radius            = pc.radius,
 			movement_callback = pc.movement_callback,
@@ -119,19 +156,12 @@ create_game :: proc(
 		padding = CAM_PADDING,
 	}
 
-
-	layers := make([dynamic]ParallaxLayer)
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg3.png"), 0.6})
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg2.png"), 0.8})
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg.png"), 0.99})
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "filler.png"), 0})
-
 	// main menu buttons
 	mm_b := make([]Button, 1)
 	mm_b[0] = make_button(
 		{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 120, 400, 120},
 		play_tex,
-		proc(game: ^Game) {game.play_state = .Playing},
+		proc(game: ^Game) {game.play_state = .MapSel},
 	)
 
 	// main menu labels
@@ -241,25 +271,64 @@ create_game :: proc(
 		labels  = go_l,
 	}
 
+	ms_b := make([dynamic]Button)
+
+	path_iter := get_maps_json()
+
+	for path in path_iter {
+		conf := create_arena_config(path)
+		map_ := arena_from_config(conf)
+
+		append(
+			&ms_b,
+			make_button(
+				{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 80, 400, 120},
+				play_tex,
+				proc(game: ^Game) {
+					game.arena = map_ // obvioudly this wont work but i want to do something like this
+					game.play_state = .Playing
+				},
+			),
+		)
+	}
+
+	map_select := Scene {
+		scene   = .MapSel,
+		buttons = nil,
+		labels  = nil,
+	}
+
 	scenes := make(map[GameState]Scene)
 	scenes[.MainMenu] = main_menu
 	scenes[.Playing] = playing
 	scenes[.Paused] = pause_menu
 	scenes[.GameOver] = game_over
+	scenes[.MapSel] = map_select
 
 	game := Game {
+		play_state = .MainMenu,
+		last_tag   = 0,
 		gc         = gc,
 		players    = players,
-		tilemap    = tilemap,
-		segments   = generate_segments(tilemap),
-		last_tag   = 0,
 		game_time  = game_time,
-		play_state = .MainMenu,
-		bg_layers  = layers[:],
 		scenes     = scenes,
+		arena      = arena,
 	}
 
 	return game
+}
+
+get_maps_json :: proc() -> []string {
+	file_list := rl.LoadDirectoryFilesEx(fmt.ctprint(STATIC_DIR), fmt.ctprint(".json"), true)
+	file_slice := file_list.paths[:file_list.count]
+
+	out := make([dynamic]string, file_list.count)
+	for cstr in file_slice {
+		append(&out, string(cstr))
+	}
+
+	rl.UnloadDirectoryFiles(file_list)
+	return out[:]
 }
 
 create_test_game :: proc() -> Game {
@@ -272,9 +341,10 @@ create_test_game :: proc() -> Game {
 		tilesheet      = {},
 	}
 
+	arena := create_arena(STATIC_DIR + "pretty.json", {{600, 300}, {800, 400}})
+
 	player_configs := [2]PlayerConfig {
 		{
-			center = {600, 300},
 			radius = PLAYER_RAD,
 			movement_callback = p1_movement,
 			tex = rl.LoadTexture(STATIC_DIR + "blue_p.png"),
@@ -283,7 +353,6 @@ create_test_game :: proc() -> Game {
 			pid = 0,
 		},
 		{
-			center = {800, 400},
 			radius = PLAYER_RAD,
 			movement_callback = p2_movement,
 			tex = rl.LoadTexture(STATIC_DIR + "red_p.png"),
@@ -293,7 +362,7 @@ create_test_game :: proc() -> Game {
 		},
 	}
 
-	return create_game(STATIC_DIR + "pretty.json", player_configs[:])
+	return create_game(arena, player_configs[:])
 }
 
 restart_game :: proc(game: ^Game) {
@@ -309,7 +378,7 @@ update_game :: proc(game: ^Game, dt: f32) {
 
 	if game.play_state != .Playing {return}
 	for &player in game.players {
-		update_entity(game.segments, &player, dt)
+		update_entity(game.arena.segments, &player, dt)
 	}
 
 	resolve_entity_tagging(game, dt)
@@ -409,7 +478,7 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 
 	rl.BeginMode2D(game.gc.cam)
 	// draw_segs(game.segments)
-	draw_tilemap(game.tilemap)
+	draw_tilemap(game.arena.tilemap)
 
 	for &player in game.players {
 		draw_entity(player)
@@ -428,7 +497,7 @@ render_game :: proc(game: ^Game, target: rl.RenderTexture2D) {
 }
 
 draw_parallax_layers :: proc(game: Game) {
-	for layer in game.bg_layers {
+	for layer in game.arena.bg_layers {
 		tex_w := f32(layer.tex.width)
 		tex_h := f32(layer.tex.height)
 
@@ -483,7 +552,7 @@ draw_scene :: proc(game: ^Game) {
 		fmt.panicf("play state does not have a corrosponding theme! %s", game.play_state)
 	}
 
-	if game.play_state == .MainMenu {
+	if game.play_state == .MainMenu || game.play_state == .MapSel {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, rl.WHITE)
 	} else if game.play_state != .Playing {
 		rl.DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (rl.Color{0, 0, 0, 100}))
@@ -512,7 +581,12 @@ draw_scene :: proc(game: ^Game) {
 		rl.DrawTexturePro(
 			e.tex,
 			{0, 0, f32(e.tex.width), f32(e.tex.height)},
-			{GAME_WIDTH * 0.65, GAME_HEIGHT / 2 - e.radius * 20, e.radius * 60, e.radius * 60},
+			{
+				GAME_WIDTH * 0.65 - 100,
+				GAME_HEIGHT / 2 - e.radius * 20,
+				e.radius * 60,
+				e.radius * 60,
+			},
 			{0, 0},
 			0,
 			rl.WHITE,
@@ -520,7 +594,7 @@ draw_scene :: proc(game: ^Game) {
 
 		rl.DrawText(
 			fmt.ctprintf("Player %d lost!", e.pid + 1),
-			GAME_WIDTH * 0.75 - 250,
+			GAME_WIDTH * 0.75 - 350,
 			GAME_HEIGHT * 0.25 - 100,
 			125,
 			rl.BLACK,

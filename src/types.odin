@@ -52,21 +52,29 @@ GameMode :: enum {
 
 GameState :: enum {
 	MainMenu,
+	MapSel,
 	Playing,
 	Paused,
 	GameOver,
 }
 
+Arena :: struct {
+	tilemap:   Tilemap,
+	bg_layers: []ParallaxLayer,
+	segments:  []Segment,
+	pspawns:   [2]Vector2,
+}
+
+ArenaConfig :: struct {}
+
 Game :: struct {
 	gc:         GameCamera,
 	players:    []Entity,
-	tilemap:    Tilemap,
-	segments:   []Segment,
 	last_tag:   f32,
 	mode:       GameMode,
 	game_time:  f32,
 	play_state: GameState,
-	bg_layers:  []ParallaxLayer,
+	arena:      Arena,
 	scenes:     map[GameState]Scene,
 }
 
@@ -82,7 +90,6 @@ Button :: struct {
 }
 
 PlayerConfig :: struct {
-	center:            Vector2,
 	radius:            f32,
 	animation:         AnimationObj,
 	tex:               Texture2D,
