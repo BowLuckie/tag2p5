@@ -1,6 +1,7 @@
 package tag2p5
 
 import rl "vendor:raylib"
+import clay "clay-odin"
 
 Vector2 :: rl.Vector2
 Texture2D :: rl.Texture2D
@@ -68,14 +69,15 @@ Arena :: struct {
 ArenaConfig :: struct {}
 
 Game :: struct {
-	gc:         GameCamera,
-	players:    []Entity,
-	last_tag:   f32,
-	mode:       GameMode,
-	game_time:  f32,
-	play_state: GameState,
-	arena:      Arena,
-	scenes:     map[GameState]Scene,
+	gc:          GameCamera,
+	players:     []Entity,
+	last_tag:    f32,
+	mode:        GameMode,
+	game_time:   f32,
+	play_state:  GameState,
+	arena:       Arena,
+	scenes:      map[GameState]Scene,
+	clay_memory: []u8,
 }
 
 ParallaxLayer :: struct {

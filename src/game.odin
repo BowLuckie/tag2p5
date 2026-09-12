@@ -272,25 +272,8 @@ create_game :: proc(
 	}
 
 	ms_b := make([dynamic]Button)
-
-	path_iter := get_maps_json()
-
-	for path in path_iter {
-		conf := create_arena_config(path)
-		map_ := arena_from_config(conf)
-
-		append(
-			&ms_b,
-			make_button(
-				{GAME_WIDTH / 2 - 200, GAME_HEIGHT / 2 + 80, 400, 120},
-				play_tex,
-				proc(game: ^Game) {
-					game.arena = map_ // obvioudly this wont work but i want to do something like this
-					game.play_state = .Playing
-				},
-			),
-		)
-	}
+	// TODO: replace with Clay UI
+	_ = ms_b
 
 	map_select := Scene {
 		scene   = .MapSel,
