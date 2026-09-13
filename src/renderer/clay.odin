@@ -1,7 +1,7 @@
-package tag2p5
+package renderer
 
+import clay "../clay-odin"
 import "base:runtime"
-import clay "clay-odin"
 import "core:math"
 import "core:strings"
 import "core:unicode/utf8"

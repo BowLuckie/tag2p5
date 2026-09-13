@@ -1,11 +1,38 @@
 package tag2p5
 
-import rl "vendor:raylib"
 import clay "clay-odin"
+import "core:mem"
+import rl "vendor:raylib"
 
 Vector2 :: rl.Vector2
 Texture2D :: rl.Texture2D
 Aabb :: rl.Rectangle
+
+ID :: clay.ID
+UI :: clay.UI
+
+Fonts :: enum {
+	TheOneFont = 0, // there is a good chance this stays like this forever
+}
+
+Game :: struct {
+	gc:          GameCamera,
+	players:     []Entity,
+	last_tag:    f32,
+	mode:        GameMode,
+	game_time:   f32,
+	play_state:  GameState,
+	arena:       Arena,
+	clay_memory: []u8,
+	assets:      GuiAssets,
+	font:        [Fonts]rl.Font,
+	suicidal:    bool,
+}
+
+GuiAssets :: struct {
+	play_button_tex: rl.Texture2D,
+	quit_button_tex: rl.Texture2D,
+}
 
 Segment :: struct {
 	a, b: Vector2,
@@ -64,21 +91,12 @@ Arena :: struct {
 	bg_layers: []ParallaxLayer,
 	segments:  []Segment,
 	pspawns:   [2]Vector2,
+	arena_buf: []u8,
+	arena:     mem.Arena,
 }
 
 ArenaConfig :: struct {}
 
-Game :: struct {
-	gc:          GameCamera,
-	players:     []Entity,
-	last_tag:    f32,
-	mode:        GameMode,
-	game_time:   f32,
-	play_state:  GameState,
-	arena:       Arena,
-	scenes:      map[GameState]Scene,
-	clay_memory: []u8,
-}
 
 ParallaxLayer :: struct {
 	tex:    Texture2D,

@@ -3,6 +3,7 @@ package tag2p5
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:mem"
 import "core:os"
 import rl "vendor:raylib"
 
@@ -10,12 +11,15 @@ FLIPPED_HORIZONTALLY :: 0x80000000
 FLIPPED_VERTICALLY :: 0x40000000
 FLIPPED_DIAGONALLY :: 0x20000000
 
-load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
-	jasonb, e := os.read_entire_file(path, context.allocator)
+load_tilemap :: proc(path: string, allocator: mem.Allocator) -> (tilemap: Tilemap, err: os.Error) {
+	jasonb, e := os.read_entire_file(path, allocator)
 	if e != nil {return {}, e}
 
 	tmap: TiledMap
+	old_alloc := context.allocator
+	context.allocator = allocator
 	json.unmarshal_string(string(jasonb), &tmap)
+	context.allocator = old_alloc
 	assert(!tmap.infinite)
 
 	layer := tmap.layers[0]
@@ -23,8 +27,9 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 	img_path := fmt.ctprint(STATIC_DIR, tmap.tilesets[0].image, sep = "")
 	tileset_tex := rl.LoadTexture(img_path)
 
-	collide_data := make(map[u32][]f64)
+	collide_data := make(map[u32][]f64, allocator)
 
+	context.allocator = allocator
 	for ttdef in tmap.tilesets[0].tiles {
 		id := u32(ttdef.id)
 		points: [dynamic]f64
@@ -35,6 +40,7 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		}
 		collide_data[id] = points[:]
 	}
+	context.allocator = old_alloc
 
 	tilemap = Tilemap {
 		tiles        = layer.data,
@@ -48,19 +54,6 @@ load_tilemap :: proc(path: string) -> (tilemap: Tilemap, err: os.Error) {
 		collide_data = collide_data,
 	}
 
-	for ttdef in tmap.tilesets[0].tiles {
-		for prop in ttdef.properties {
-			delete(prop.value)
-		}
-		delete(ttdef.properties)
-	}
-	delete(tmap.tilesets[0].tiles)
-	delete(tmap.tilesets[0].image)
-	delete(tmap.layers[0].name)
-	delete(tmap.layers)
-	delete(tmap.tilesets)
-	delete(jasonb)
-
 	return tilemap, nil
 }
 
@@ -73,30 +66,29 @@ get_gid_and_flags :: proc(raw: u32) -> (gid: u32, flip_h, flip_v, flip_d: bool) 
 }
 
 
-generate_segments :: proc(tilemap: Tilemap) -> []Segment {
-	segments := make([dynamic]Segment)
+generate_segments :: proc(tilemap: Tilemap, allocator: mem.Allocator) -> []Segment {
+	segments := make([dynamic]Segment, allocator)
 	for y := 0; y < tilemap.height; y += 1 {
 		for x := 0; x < tilemap.width; x += 1 {
 			index := (y * tilemap.width) + x
 
 			raw := tilemap.tiles[index]
 			gid, flip_h, flip_v, flip_d := get_gid_and_flags(raw)
-			segs := segs_from_cdat(gid, flip_h, flip_v, flip_d, Vector2{f32(x), f32(y)}, tilemap)
+			segs := segs_from_cdat(gid, flip_h, flip_v, flip_d, Vector2{f32(x), f32(y)}, tilemap, allocator)
 
 			append(&segments, ..segs)
-			delete(segs)
 		}
 	}
 
 	return segments[:]
 }
 
-segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tilemap) -> []Segment {
+segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tilemap, allocator: mem.Allocator) -> []Segment {
 	trueid := int(gid) - tilemap.first_gid
 	if trueid < 0 do return {}
 
 	points_upair := tilemap.collide_data[u32(trueid)]
-	points := squash_pairs(points_upair)
+	points := squash_pairs(points_upair, allocator)
 
 	for &point in points {
 		point -= 0.5
@@ -119,7 +111,7 @@ segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tile
 		point.y += world_tl.y * f32(tilemap.tile_height)
 	}
 
-	segments: [dynamic]Segment
+	segments := make([dynamic]Segment, allocator)
 
 	for pt, i in points {
 		if i >= len(points) - 1 do break
@@ -129,13 +121,12 @@ segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tile
 		append(&segments, seg)
 	}
 
-	delete(points)
 	return segments[:]
 }
 
-squash_pairs :: proc(upaired: []f64) -> []Vector2 {
+squash_pairs :: proc(upaired: []f64, allocator: mem.Allocator) -> []Vector2 {
 	assert(len(upaired) % 2 == 0, "malformed collision data pairings")
-	result := make([]Vector2, len(upaired) / 2)
+	result := make([]Vector2, len(upaired) / 2, allocator)
 	for i in 0 ..< len(result) {
 		result[i] = Vector2{f32(upaired[i * 2]), f32(upaired[i * 2 + 1])}
 	}
