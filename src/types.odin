@@ -16,17 +16,22 @@ Fonts :: enum {
 }
 
 Game :: struct {
-	gc:          GameCamera,
-	players:     []Entity,
-	last_tag:    f32,
 	mode:        GameMode,
-	game_time:   f32,
 	play_state:  GameState,
-	arena:       Arena,
 	clay_memory: []u8,
 	assets:      GuiAssets,
 	font:        [Fonts]rl.Font,
 	suicidal:    bool,
+	levels:      []Level,
+	lvl_idx:     uint,
+}
+
+Level :: struct {
+	gc:        GameCamera,
+	arena:     Arena,
+	players:   []Entity,
+	last_tag:  f32,
+	game_time: f32,
 }
 
 GuiAssets :: struct {

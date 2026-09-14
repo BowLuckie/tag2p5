@@ -35,14 +35,16 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 }
 
 free_game :: proc(game: ^Game) {
-	free_arena(&game.arena)
+	for &level in &game.levels {
+		free_arena(&level.arena)
 
-	// players
-	for p in game.players {
-		rl.UnloadTexture(p.tex)
-		rl.UnloadTexture(p.triangle_tex)
+		// players
+		for p in level.players {
+			rl.UnloadTexture(p.tex)
+			rl.UnloadTexture(p.triangle_tex)
+		}
+		delete(level.players)
 	}
-	delete(game.players)
 }
 
 make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^Game)) -> Button {
@@ -83,7 +85,7 @@ free_arena :: proc(arena: ^Arena) {
 }
 
 create_game :: proc(
-	arena: Arena,
+	arenas: Arena,
 	player_configs: []PlayerConfig,
 	game_time: f32 = GAME_TIME,
 ) -> Game {
@@ -103,8 +105,8 @@ create_game :: proc(
 		if animation.tile_w == 0 do animation.tile_w = 16
 
 		center := Vector2{0, 0}
-		if i < len(arena.pspawns) {
-			center = arena.pspawns[i]
+		if i < len(arenas.pspawns) {
+			center = arenas.pspawns[i]
 		}
 
 		players[i] = Entity {
@@ -132,13 +134,20 @@ create_game :: proc(
 		quit_button_tex = mm_tex,
 	}
 
+	level := Level {
+		gc        = gc,
+		arena     = arenas,
+		players   = players,
+		last_tag  = 0,
+		game_time = game_time,
+	}
+
+	levels := make([]Level, 1)
+	levels[0] = level
+
 	game := Game {
 		play_state = .MainMenu,
-		last_tag = 0,
-		gc = gc,
-		players = players,
-		game_time = game_time,
-		arena = arena,
+		levels = levels,
 		assets = assets,
 		font = [Fonts]rl.Font {
 			.TheOneFont = rl.LoadFontEx("./assets/PeaberryBase.ttf", 50, nil, 0),
@@ -161,7 +170,7 @@ get_maps_json :: proc() -> []string {
 	return out[:]
 }
 
-tag2p5_INIT :: proc() -> Game {
+new_game :: proc() -> Game {
 	player_anim := AnimationObj { 	// currently not using
 		frame_duration = 0.1,
 		tile_count     = 3,
@@ -197,30 +206,30 @@ tag2p5_INIT :: proc() -> Game {
 
 restart_game :: proc(game: ^Game) {
 	free_game(game)
-	game^ = tag2p5_INIT()
+	game^ = new_game()
 	game.play_state = .Playing
 }
 
 update_game :: proc(game: ^Game, dt: f32) {
 	if game.play_state != .Playing {return}
-	for &player in game.players {
-		update_entity(game.arena.segments, &player, dt)
+	for &player in game.levels[game.lvl_idx].players {
+		update_entity(game.levels[game.lvl_idx].arena.segments, &player, dt)
 	}
 
 	resolve_entity_tagging(game, dt)
 
 	update_camera(
-		&game.gc,
-		game.players[0].center,
-		game.players[1].center,
+		&game.levels[game.lvl_idx].gc,
+		game.levels[game.lvl_idx].players[0].center,
+		game.levels[game.lvl_idx].players[1].center,
 		GAME_WIDTH,
 		GAME_HEIGHT,
 		dt,
 	)
 
-	game.game_time -= dt
-	if game.game_time < 0 {
-		game.game_time = 0
+	game.levels[game.lvl_idx].game_time -= dt
+	if game.levels[game.lvl_idx].game_time < 0 {
+		game.levels[game.lvl_idx].game_time = 0
 		game.play_state = .GameOver
 	}
 }
@@ -296,11 +305,11 @@ render_game :: proc(
 		rl.ClearBackground(SKY_COLOR)
 		draw_parallax_layers(game^)
 
-		rl.BeginMode2D(game.gc.cam)
+		rl.BeginMode2D(game.levels[game.lvl_idx].gc.cam)
 		// draw_segs(game.segments)
-		draw_tilemap(game.arena.tilemap)
+		draw_tilemap(game.levels[game.lvl_idx].arena.tilemap)
 
-		for &player in game.players {
+		for &player in game.levels[game.lvl_idx].players {
 			draw_entity(player)
 		}
 		rl.EndMode2D()
@@ -311,7 +320,7 @@ render_game :: proc(
 }
 
 draw_parallax_layers :: proc(game: Game) {
-	for layer in game.arena.bg_layers {
+	for layer in game.levels[game.lvl_idx].arena.bg_layers {
 		tex_w := f32(layer.tex.width)
 		tex_h := f32(layer.tex.height)
 
@@ -321,7 +330,7 @@ draw_parallax_layers :: proc(game: Game) {
 
 		lcam := rl.Camera2D {
 			offset = {f32(GAME_WIDTH) / 2, f32(GAME_HEIGHT) / 2},
-			target = {game.gc.cam.target.x * layer.factor, 0},
+			target = {game.levels[game.lvl_idx].gc.cam.target.x * layer.factor, 0},
 			zoom   = 1,
 		}
 		rl.BeginMode2D(lcam)
@@ -361,7 +370,6 @@ draw_text :: proc(
 build_ui :: proc(game: ^Game) {
 	switch game.play_state {
 	case .MainMenu:
-		ui_dim(game)
 		ui_main_menu(game)
 	case .MapSel:
 		ui_map_select(game)
@@ -379,7 +387,7 @@ build_ui :: proc(game: ^Game) {
 }
 
 ui_main_menu :: proc(game: ^Game) {
-	if clay.UI(clay.ID("menu_root"))(
+	if UI(ID("menu_root"))(
 	clay.ElementDeclaration {
 		layout = clay.LayoutConfig {
 			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
@@ -389,7 +397,7 @@ ui_main_menu :: proc(game: ^Game) {
 		backgroundColor = clay.Color{20, 20, 30, 255},
 	},
 	) {
-		if clay.UI(clay.ID("menu_title_section"))(
+		if UI(ID("menu_title_section"))(
 		clay.ElementDeclaration {
 			layout = clay.LayoutConfig {
 				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.5)},
@@ -407,7 +415,7 @@ ui_main_menu :: proc(game: ^Game) {
 			)
 		}
 
-		if clay.UI(clay.ID("menu_buttons_section"))(
+		if UI(ID("menu_buttons_section"))(
 		clay.ElementDeclaration {
 			layout = clay.LayoutConfig {
 				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.25)},
@@ -415,7 +423,7 @@ ui_main_menu :: proc(game: ^Game) {
 			},
 		},
 		) {
-			if clay.UI(clay.ID("menu_buttons"))(
+			if UI(ID("menu_buttons"))(
 			clay.ElementDeclaration {
 				layout = clay.LayoutConfig {
 					layoutDirection = .TopToBottom,
@@ -424,26 +432,21 @@ ui_main_menu :: proc(game: ^Game) {
 				},
 			},
 			) {
-				if image_button(clay.ID("PlayButton"), &game.assets.play_button_tex, 600, 120) {
+				if image_button(ID("PlayButton"), &game.assets.play_button_tex, 600, 120) {
 					game.play_state = .MapSel
 				}
-				if image_button(
-					clay.ID("PlaceholderButton"),
-					&game.assets.play_button_tex,
-					600,
-					120,
-				) {
+				if image_button(ID("PlaceholderButton"), &game.assets.play_button_tex, 600, 120) {
 					// TODO: settings or credits or something
 				}
-				if image_button(clay.ID("QuitButton"), &game.assets.quit_button_tex, 600, 120) {
+				if image_button(ID("QuitButton"), &game.assets.quit_button_tex, 600, 120) {
 					game.suicidal = true
 				}
 			}
 		}
 
-		if clay.UI(clay.ID("menu_bottom_spacer"))(
+		if UI(ID("menu_bottom_spacer"))(
 		clay.ElementDeclaration {
-			layout = clay.LayoutConfig {
+			layout = {
 				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.25)},
 			},
 		},
@@ -451,11 +454,53 @@ ui_main_menu :: proc(game: ^Game) {
 	}
 }
 
-ui_map_select :: proc(game: ^Game) {}
+ui_map_select :: proc(game: ^Game) {
+	if UI(ID("item_list"))(
+	clay.ElementDeclaration {
+		layout = clay.LayoutConfig{layoutDirection = .TopToBottom, childGap = 8},
+	},
+	) {
+		for item, i in game.levels[game.lvl_idx].players {
+			if UI(clay.ID("ListItem", u32(i)))(
+			clay.ElementDeclaration {
+				layout = clay.LayoutConfig {
+					sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingFixed(40)},
+				},
+				backgroundColor = {60, 60, 70, 255},
+			},
+			) {
+				if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
+					fmt.println("clicked index:", i)
+				}
+
+				clay.Text(
+					fmt.tprintf("Item %d: %v", i, item),
+					clay.TextElementConfig {
+						fontId = 0,
+						fontSize = 20,
+						textColor = {255, 255, 255, 255},
+					},
+				)
+			}
+		}
+	}
+}
 
 ui_hud :: proc(game: ^Game) {}
 
-ui_dim :: proc(game: ^Game) {}
+ui_dim :: proc(game: ^Game) {
+	if UI(ID("dimoverlay"))(
+	clay.ElementDeclaration {
+		layout = {sizing = {width = clay.SizingGrow(), height = clay.SizingGrow()}},
+		floating = {
+			attachTo = .Root,
+			attachment = {element = .LeftTop, parent = .LeftTop},
+			zIndex = 999,
+		},
+		backgroundColor = {0, 0, 0, 100},
+	},
+	) {}
+}
 
 ui_pause_menu :: proc(game: ^Game) {}
 

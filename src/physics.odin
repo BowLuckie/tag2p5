@@ -136,15 +136,16 @@ entity_tagging :: proc(e1, e2: ^Entity) -> bool {
 
 // NOTE: last man standing mode?
 resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
-	game.last_tag -= dt
-	if game.last_tag > 0 {
+	level := &game.levels[game.lvl_idx]
+	level.last_tag -= dt
+	if level.last_tag > 0 {
 		return
 	}
 
-	for i in 0 ..< len(game.players) {
-		for j in i + 1 ..< len(game.players) {
-			if entity_tagging(&game.players[i], &game.players[j]) {
-				resolve_tag(&game.players[i], &game.players[j], game)
+	for i in 0 ..< len(level.players) {
+		for j in i + 1 ..< len(level.players) {
+			if entity_tagging(&level.players[i], &level.players[j]) {
+				resolve_tag(&level.players[i], &level.players[j], game)
 				return
 			}
 		}
@@ -152,6 +153,6 @@ resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
 }
 
 resolve_tag :: proc(e1, e2: ^Entity, game: ^Game) {
-	game.last_tag = TAG_IMMUNITY
+	game.levels[game.lvl_idx].last_tag = TAG_IMMUNITY
 	e1.tagged, e2.tagged = e2.tagged, e1.tagged
 }

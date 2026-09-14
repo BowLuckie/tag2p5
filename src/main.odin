@@ -33,7 +33,7 @@ main :: proc() {
 		}
 	}
 
-	rl.SetConfigFlags({.WINDOW_RESIZABLE, .WINDOW_TOPMOST})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE, .WINDOW_TOPMOST, .FULLSCREEN_MODE})
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "Tag 2.5")
 	rl.SetWindowMinSize(GAME_WIDTH * 0.1, GAME_HEIGHT * 0.1)
 	rl.SetTargetFPS(60)
@@ -48,17 +48,13 @@ main :: proc() {
 
 	min_memory_size := clay.MinMemorySize()
 	clay_memory := make([]u8, min_memory_size)
-	defer {
-		delete(clay_memory)
-		delete(renderer.raylib_fonts)
-	}
 
 	clay_arena := clay.CreateArenaWithCapacityAndMemory(
 		uint(min_memory_size),
 		raw_data(clay_memory),
 	)
 
-	game := tag2p5_INIT()
+	game := new_game()
 
 	clay.Initialize(clay_arena, {GAME_WIDTH, GAME_HEIGHT}, {handler = _clay_error_handler})
 	clay.SetMeasureTextFunction(renderer.measure_text, &game.font)
@@ -66,6 +62,8 @@ main :: proc() {
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
 
 	defer {
+		delete(clay_memory)
+		delete(renderer.raylib_fonts)
 		free_game(&game)
 		rl.UnloadRenderTexture(target)
 		rl.CloseWindow()
@@ -81,6 +79,7 @@ main :: proc() {
 
 		clay.BeginLayout()
 		build_ui(&game)
+		clay.SetDebugModeEnabled(true)
 		ui_commands := clay.EndLayout(dt)
 
 		render_game(&game, target, ui_commands)
