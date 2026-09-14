@@ -2,7 +2,7 @@ package tag2p5
 
 import rl "vendor:raylib"
 
-STATIC_DIR :: #config(STATIC_DIR, "./assets/")
+ASSET_DIR :: #config(ASSET_DIR, "./assets/")
 
 GAME_WIDTH :: 2880
 GAME_HEIGHT :: 1920
@@ -28,3 +28,4 @@ HAIRLINE_OVERLAP :: 0.9
 SKY_COLOR :: rl.Color{99, 155, 255, 255}
 
 TITLE_FONT_ID :: 0
+SCROLL_SPEED :: 7

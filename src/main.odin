@@ -62,24 +62,28 @@ main :: proc() {
 	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
 
 	defer {
-		delete(clay_memory)
-		delete(renderer.raylib_fonts)
 		free_game(&game)
 		rl.UnloadRenderTexture(target)
 		rl.CloseWindow()
+		delete(clay_memory)
+		delete(renderer.raylib_fonts)
 	}
 
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 
 		clay.SetPointerState(transmute(clay.Vector2)mouse_pos(), rl.IsMouseButtonDown(.LEFT))
-		clay.UpdateScrollContainers(false, transmute(clay.Vector2)rl.GetMouseWheelMoveV(), dt)
+		clay.UpdateScrollContainers(
+			true,
+			transmute(clay.Vector2)rl.GetMouseWheelMoveV() * SCROLL_SPEED,
+			dt,
+		)
 
 		update_game(&game, dt)
 
 		clay.BeginLayout()
 		build_ui(&game)
-		clay.SetDebugModeEnabled(true)
+		// clay.SetDebugModeEnabled(true)
 		ui_commands := clay.EndLayout(dt)
 
 		render_game(&game, target, ui_commands)

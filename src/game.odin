@@ -35,23 +35,24 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 }
 
 free_game :: proc(game: ^Game) {
-	for &level in &game.levels {
-		free_arena(&level.arena)
+	if len(game.levels) == 0 {return}
 
-		// players
-		for p in level.players {
-			rl.UnloadTexture(p.tex)
-			rl.UnloadTexture(p.triangle_tex)
-		}
-		delete(level.players)
+	free_arena(&game.levels[0].arena)
+
+	for p in game.levels[0].players {
+		rl.UnloadTexture(p.tex)
+		rl.UnloadTexture(p.triangle_tex)
 	}
+	delete(game.levels[0].players)
+
+	delete(game.levels)
 }
 
 make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^Game)) -> Button {
 	return Button{rect, glyph, on_click}
 }
 
-create_arena :: proc(tilemap_path: string, pspawns: [2]Vector2) -> Arena {
+create_arena :: proc(tilemap_path: string, pspawns: []Vector2) -> Arena {
 	arena_buf := make([]u8, 4 * 1024 * 1024)
 	a: mem.Arena
 	mem.arena_init(&a, arena_buf)
@@ -61,10 +62,10 @@ create_arena :: proc(tilemap_path: string, pspawns: [2]Vector2) -> Arena {
 	if err != nil {fmt.panicf("failed to load tilemap %s", err)}
 
 	layers := make([dynamic]ParallaxLayer, alloc)
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg3.png"), 0.6})
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg2.png"), 0.8})
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "bg.png"), 0.99})
-	append(&layers, ParallaxLayer{rl.LoadTexture(STATIC_DIR + "filler.png"), 0})
+	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "bg3.png"), 0.6})
+	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "bg2.png"), 0.8})
+	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "bg.png"), 0.99})
+	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "filler.png"), 0})
 
 	return Arena {
 		tilemap = tilemap,
@@ -89,10 +90,10 @@ create_game :: proc(
 	player_configs: []PlayerConfig,
 	game_time: f32 = GAME_TIME,
 ) -> Game {
-	restart_tex := rl.LoadTexture(STATIC_DIR + "restart.png")
-	play_tex := rl.LoadTexture(STATIC_DIR + "play.png")
-	pause_tex := rl.LoadTexture(STATIC_DIR + "pause.png")
-	mm_tex := rl.LoadTexture(STATIC_DIR + "menu.png")
+	restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
+	play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
+	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
+	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
 
 	players := make([]Entity, len(player_configs))
 	for i in 0 ..< len(player_configs) {
@@ -140,14 +141,21 @@ create_game :: proc(
 		players   = players,
 		last_tag  = 0,
 		game_time = game_time,
+		thumb     = rl.LoadTexture(ASSET_DIR + "maynard.png"),
 	}
 
-	levels := make([]Level, 1)
-	levels[0] = level
+	levels := make([dynamic]Level)
+	append(&levels, level)
+	append(&levels, level)
+	append(&levels, level)
+	append(&levels, level)
+	append(&levels, level)
+	append(&levels, level)
+	append(&levels, level)
 
 	game := Game {
 		play_state = .MainMenu,
-		levels = levels,
+		levels = levels[:],
 		assets = assets,
 		font = [Fonts]rl.Font {
 			.TheOneFont = rl.LoadFontEx("./assets/PeaberryBase.ttf", 50, nil, 0),
@@ -158,7 +166,7 @@ create_game :: proc(
 }
 
 get_maps_json :: proc() -> []string {
-	file_list := rl.LoadDirectoryFilesEx(fmt.ctprint(STATIC_DIR), fmt.ctprint(".json"), true)
+	file_list := rl.LoadDirectoryFilesEx(fmt.ctprint(ASSET_DIR), fmt.ctprint(".json"), true)
 	file_slice := file_list.paths[:file_list.count]
 
 	out := make([dynamic]string, file_list.count)
@@ -180,23 +188,23 @@ new_game :: proc() -> Game {
 		tilesheet      = {},
 	}
 
-	arena := create_arena(STATIC_DIR + "pretty.json", {{600, 300}, {800, 400}})
+	arena := create_arena(ASSET_DIR + "pretty.json", {{600, 300}, {800, 400}})
 
 	player_configs := [2]PlayerConfig {
 		{
 			radius = PLAYER_RAD,
 			movement_callback = p1_movement,
-			tex = rl.LoadTexture(STATIC_DIR + "blue_p.png"),
-			triangle_tex = rl.LoadTexture(STATIC_DIR + "triangle_b.png"),
-			animation = player_anim,
+			tex = rl.LoadTexture(ASSET_DIR + "blue_p.png"),
+			triangle_tex = rl.LoadTexture(ASSET_DIR + "triangle_b.png"),
+			animation = {},
 			pid = 0,
 		},
 		{
 			radius = PLAYER_RAD,
 			movement_callback = p2_movement,
-			tex = rl.LoadTexture(STATIC_DIR + "red_p.png"),
-			triangle_tex = rl.LoadTexture(STATIC_DIR + "triangle_r.png"),
-			animation = player_anim,
+			tex = rl.LoadTexture(ASSET_DIR + "red_p.png"),
+			triangle_tex = rl.LoadTexture(ASSET_DIR + "triangle_r.png"),
+			animation = {},
 			pid = 1,
 		},
 	}
@@ -455,38 +463,123 @@ ui_main_menu :: proc(game: ^Game) {
 }
 
 ui_map_select :: proc(game: ^Game) {
-	if UI(ID("item_list"))(
+	if UI(ID("mapselect_root"))(
 	clay.ElementDeclaration {
-		layout = clay.LayoutConfig{layoutDirection = .TopToBottom, childGap = 8},
+		layout = clay.LayoutConfig {
+			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+		},
+		backgroundColor = clay.Color{20, 20, 30, 255},
 	},
 	) {
-		for item, i in game.levels[game.lvl_idx].players {
-			if UI(clay.ID("ListItem", u32(i)))(
+		if UI(ID("mapselect_title_anchor"))(
+		clay.ElementDeclaration {
+			floating = clay.FloatingElementConfig {
+				attachTo = clay.FloatingAttachToElement.Root,
+				attachment = clay.FloatingAttachPoints {
+					element = clay.FloatingAttachPointType.CenterCenter,
+					parent = clay.FloatingAttachPointType.CenterTop,
+				},
+				offset = {0, GAME_HEIGHT * 0.15},
+				zIndex = 1,
+			},
+		},
+		) {
+			clay.Text(
+				"MAP SELECT",
+				clay.TextElementConfig {
+					fontId = 0,
+					fontSize = 144,
+					textColor = clay.Color{255, 255, 255, 255},
+				},
+			)
+		}
+
+		if UI(ID("mapselect_list_anchor"))(
+		clay.ElementDeclaration {
+			floating = clay.FloatingElementConfig {
+				attachTo = clay.FloatingAttachToElement.Root,
+				attachment = clay.FloatingAttachPoints {
+					element = clay.FloatingAttachPointType.CenterCenter,
+					parent = clay.FloatingAttachPointType.CenterTop,
+				},
+				offset = {0, GAME_HEIGHT * 0.5},
+				zIndex = 1,
+			},
+		},
+		) {
+			if UI(ID("map_list"))(
 			clay.ElementDeclaration {
 				layout = clay.LayoutConfig {
-					sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingFixed(40)},
+					layoutDirection = .LeftToRight,
+					childGap = 64,
+					sizing = clay.Sizing {
+						width = clay.SizingFixed(GAME_WIDTH),
+						height = clay.SizingFixed(880),
+					},
+					childAlignment = {x = .Left, y = .Center},
+					padding = clay.Padding{top = 40, bottom = 40, left = 40, right = 40},
 				},
-				backgroundColor = {60, 60, 70, 255},
+				clip = clay.ClipElementConfig {
+					horizontal = true,
+					childOffset = clay.GetScrollOffset(),
+				},
 			},
 			) {
-				if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
-					fmt.println("clicked index:", i)
-				}
+				for item, i in game.levels {
+					hovered := clay.Hovered()
 
-				clay.Text(
-					fmt.tprintf("Item %d: %v", i, item),
-					clay.TextElementConfig {
-						fontId = 0,
-						fontSize = 20,
-						textColor = {255, 255, 255, 255},
+					if UI(clay.ID("MapCard", u32(i)))(
+					clay.ElementDeclaration {
+						layout = clay.LayoutConfig {
+							layoutDirection = .TopToBottom,
+							sizing = clay.Sizing {
+								width = clay.SizingFixed(760),
+								height = clay.SizingFixed(820),
+							},
+							childAlignment = {x = .Center, y = .Center},
+							padding = clay.Padding{top = 36, bottom = 36, left = 36, right = 36},
+							childGap = 28,
+						},
+						backgroundColor = hovered ? clay.Color{80, 80, 100, 255} : clay.Color{45, 45, 58, 255},
+						cornerRadius = clay.CornerRadius{12, 12, 12, 12},
 					},
-				)
+					) {
+						if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
+							game.lvl_idx = i
+							game.play_state = .Playing
+						}
+
+						if UI(clay.ID("MapThumb", u32(i)))(
+						clay.ElementDeclaration {
+							layout = clay.LayoutConfig {
+								sizing = clay.Sizing {
+									width = clay.SizingFixed(680),
+									height = clay.SizingFixed(680),
+								},
+							},
+							image = clay.ImageElementConfig{imageData = &game.levels[i].thumb},
+							cornerRadius = clay.CornerRadius{10, 10, 10, 10},
+						},
+						) {}
+
+						clay.Text(
+							fmt.tprintf("MAP %d", i),
+							clay.TextElementConfig {
+								fontId = 0,
+								fontSize = 40,
+								textColor = clay.Color{255, 255, 255, 255},
+							},
+						)
+					}
+				}
 			}
 		}
 	}
 }
 
-ui_hud :: proc(game: ^Game) {}
+ui_hud :: proc(game: ^Game) {
+	if UI(ID("hudroot"))(clay.ElementDeclaration{}) {}
+}
 
 ui_dim :: proc(game: ^Game) {
 	if UI(ID("dimoverlay"))(

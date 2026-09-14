@@ -23,7 +23,7 @@ Game :: struct {
 	font:        [Fonts]rl.Font,
 	suicidal:    bool,
 	levels:      []Level,
-	lvl_idx:     uint,
+	lvl_idx:     int,
 }
 
 Level :: struct {
@@ -32,6 +32,7 @@ Level :: struct {
 	players:   []Entity,
 	last_tag:  f32,
 	game_time: f32,
+	thumb:     rl.Texture2D,
 }
 
 GuiAssets :: struct {
@@ -95,13 +96,12 @@ Arena :: struct {
 	tilemap:   Tilemap,
 	bg_layers: []ParallaxLayer,
 	segments:  []Segment,
-	pspawns:   [2]Vector2,
+	pspawns:   []Vector2,
 	arena_buf: []u8,
 	arena:     mem.Arena,
 }
 
 ArenaConfig :: struct {}
-
 
 ParallaxLayer :: struct {
 	tex:    Texture2D,

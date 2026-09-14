@@ -24,7 +24,7 @@ load_tilemap :: proc(path: string, allocator: mem.Allocator) -> (tilemap: Tilema
 
 	layer := tmap.layers[0]
 
-	img_path := fmt.ctprint(STATIC_DIR, tmap.tilesets[0].image, sep = "")
+	img_path := fmt.ctprint(ASSET_DIR, tmap.tilesets[0].image, sep = "")
 	tileset_tex := rl.LoadTexture(img_path)
 
 	collide_data := make(map[u32][]f64, allocator)
