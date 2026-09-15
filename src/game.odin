@@ -130,10 +130,6 @@ create_game :: proc(
 		padding = CAM_PADDING,
 	}
 
-	// restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
-	// play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
-	// pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
-	// mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
 	assets := GuiAssets {
 		play_button_tex    = play_tex,
 		quit_button_tex    = mm_tex,
@@ -243,7 +239,7 @@ update_game :: proc(game: ^Game, dt: f32) {
 	)
 
 	game.levels[game.lvl_idx].game_time -= dt
-	if game.levels[game.lvl_idx].game_time < 0 {
+	if game.levels[game.lvl_idx].game_time < 0.8 {
 		game.levels[game.lvl_idx].game_time = 0
 		game.play_state = .GameOver
 	}
@@ -267,32 +263,10 @@ draw_entity :: proc(e: Entity) {
 
 	if e.tagged {
 		draw_triangle(e)
-		// rect := animation_rect(e.animation)
-		// rl.DrawTexturePro(
-		// 	e.animation.tilesheet,
-		// 	rect,
-		// 	{e.center.x, e.center.y, e.radius * 4, e.radius * 4},
-		// 	{e.radius * 2, e.radius * 2},
-		// 	0,
-		// 	rl.WHITE,
-		// )
 	}
 }
 
 draw_triangle :: proc(e: Entity) {
-	// gap: f32 = e.radius * 0.3
-	// tri_height: f32 = e.radius * 0.8
-	// tri_width: f32 = e.radius
-	//
-	// base_y := e.center.y - e.radius - gap - tri_height
-	// tip_y := base_y + tri_height
-	//
-	// tip := Vector2{e.center.x, tip_y}
-	// left := Vector2{e.center.x - tri_width / 2, base_y}
-	// right := Vector2{e.center.x + tri_width / 2, base_y}
-	//
-	// rl.DrawTriangle(tip, right, left, e.color)
-
 	rl.DrawTexture(
 		e.triangle_tex,
 		i32(e.center.x) - (e.triangle_tex.width / 2) + 1,
