@@ -32,12 +32,15 @@ Level :: struct {
 	players:   []Entity,
 	last_tag:  f32,
 	game_time: f32,
-	thumb:     rl.Texture2D,
+	thumb:     Texture2D,
 }
 
 GuiAssets :: struct {
-	play_button_tex: rl.Texture2D,
-	quit_button_tex: rl.Texture2D,
+	play_button_tex:    Texture2D,
+	quit_button_tex:    Texture2D,
+	pause_button_tex:   Texture2D,
+	restart_button_tex: Texture2D,
+	menu_button_tex:    Texture2D,
 }
 
 Segment :: struct {

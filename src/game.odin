@@ -130,9 +130,16 @@ create_game :: proc(
 		padding = CAM_PADDING,
 	}
 
+	// restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
+	// play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
+	// pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
+	// mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
 	assets := GuiAssets {
-		play_button_tex = play_tex,
-		quit_button_tex = mm_tex,
+		play_button_tex    = play_tex,
+		quit_button_tex    = mm_tex,
+		pause_button_tex   = pause_tex,
+		menu_button_tex    = mm_tex,
+		restart_button_tex = restart_tex,
 	}
 
 	level := Level {
@@ -323,6 +330,10 @@ render_game :: proc(
 		rl.EndMode2D()
 	}
 
+	if game.play_state == .GameOver {
+		// TODO: make the loser be drawn on game over
+	}
+
 	commands := ui_commands
 	renderer.clay_raylib_render(&commands)
 }
@@ -385,11 +396,9 @@ build_ui :: proc(game: ^Game) {
 		ui_hud(game)
 	case .Paused:
 		ui_hud(game)
-		ui_dim(game)
 		ui_pause_menu(game)
 	case .GameOver:
 		ui_hud(game)
-		ui_dim(game)
 		ui_game_over(game)
 	}
 }
@@ -443,7 +452,7 @@ ui_main_menu :: proc(game: ^Game) {
 				if image_button(ID("PlayButton"), &game.assets.play_button_tex, 600, 120) {
 					game.play_state = .MapSel
 				}
-				if image_button(ID("PlaceholderButton"), &game.assets.play_button_tex, 600, 120) {
+				if image_button(ID("PlaceholderButton"), &game.assets.quit_button_tex, 600, 120) {
 					// TODO: settings or credits or something
 				}
 				if image_button(ID("QuitButton"), &game.assets.quit_button_tex, 600, 120) {
@@ -563,7 +572,7 @@ ui_map_select :: proc(game: ^Game) {
 						) {}
 
 						clay.Text(
-							fmt.tprintf("MAP %d", i),
+							fmt.tprintf("MAP %d", i + 1),
 							clay.TextElementConfig {
 								fontId = 0,
 								fontSize = 40,
@@ -578,29 +587,164 @@ ui_map_select :: proc(game: ^Game) {
 }
 
 ui_hud :: proc(game: ^Game) {
-	if UI(ID("hudroot"))(clay.ElementDeclaration{}) {}
-}
-
-ui_dim :: proc(game: ^Game) {
-	if UI(ID("dimoverlay"))(
+	if UI(ID("hud_root"))(
 	clay.ElementDeclaration {
-		layout = {sizing = {width = clay.SizingGrow(), height = clay.SizingGrow()}},
-		floating = {
+		layout = clay.LayoutConfig {
+			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+			layoutDirection = .TopToBottom,
+			childAlignment = clay.ChildAlignment{x = .Center},
+			padding = clay.Padding{top = 24, bottom = 24},
+		},
+		floating = clay.FloatingElementConfig {
 			attachTo = .Root,
 			attachment = {element = .LeftTop, parent = .LeftTop},
-			zIndex = 999,
+			zIndex = 777,
 		},
-		backgroundColor = {0, 0, 0, 100},
 	},
-	) {}
+	) {
+		t := game.levels[game.lvl_idx].game_time
+		text_color: clay.Color
+
+		if t < 10 && i32(t) % 2 == 0 {
+			text_color = clay.Color{255, 40, 40, 255}
+		} else {
+			text_color = clay.Color{20, 20, 30, 255}
+		}
+
+		if UI(ID("timer"))(
+		clay.ElementDeclaration{layout = clay.LayoutConfig{childAlignment = {x = .Center}}},
+		) {
+			clay.Text(
+				fmt.tprintf("%d", i32(t)),
+				clay.TextElementConfig{fontId = 0, fontSize = 96, textColor = text_color},
+			)
+		}
+
+		if UI(ID("hud_mid_spacer"))(
+		clay.ElementDeclaration {
+			layout = {sizing = {width = clay.SizingGrow(), height = clay.SizingGrow()}},
+		},
+		) {}
+
+		if image_button(ID("pause_button"), &game.assets.pause_button_tex, 96, 96) {
+			game.play_state = .Paused
+		}
+	}
 }
 
-ui_pause_menu :: proc(game: ^Game) {}
+ui_pause_menu :: proc(game: ^Game) {
+	if UI(ID("pause_overlay"))(
+	clay.ElementDeclaration {
+		layout = clay.LayoutConfig {
+			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+		},
+		backgroundColor = clay.Color{0, 0, 0, 160},
+		floating = clay.FloatingElementConfig {
+			attachTo = .Root,
+			attachment = {element = .LeftTop, parent = .LeftTop},
+			zIndex = 900,
+		},
+	},
+	) {
+		if UI(ID("pause_root"))(
+		clay.ElementDeclaration {
+			layout = clay.LayoutConfig {
+				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+				layoutDirection = .TopToBottom,
+				childAlignment = {x = .Center, y = .Center},
+				childGap = 20,
+			},
+		},
+		) {
+			clay.Text(
+				"PAUSED",
+				clay.TextElementConfig {
+					fontId = 0,
+					fontSize = 144,
+					textColor = {255, 255, 255, 255},
+				},
+			)
 
-ui_game_over :: proc(game: ^Game) {}
+			if image_button(
+				ID("resume_button"),
+				&game.assets.play_button_tex,
+				260 * 1.5,
+				60 * 1.5,
+			) {
+				game.play_state = .Playing
+			}
 
+			if image_button(
+				ID("resstart_button"),
+				&game.assets.restart_button_tex,
+				260 * 1.5,
+				60 * 1.5,
+			) {
+				restart_game(game)
+			}
 
-image_button :: proc(id: clay.ElementId, tex: ^rl.Texture2D, width, height: f32) -> bool {
+			if image_button(ID("quit_button"), &game.assets.quit_button_tex, 260 * 1.5, 60 * 1.5) {
+				game.play_state = .MainMenu
+			}
+		}
+	}
+}
+
+ui_game_over :: proc(game: ^Game) {
+	if UI(ID("gameover_overlay"))(
+	clay.ElementDeclaration {
+		layout = clay.LayoutConfig {
+			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+		},
+		backgroundColor = clay.Color{0, 0, 0, 160},
+		floating = clay.FloatingElementConfig {
+			attachTo = .Root,
+			attachment = {element = .LeftTop, parent = .LeftTop},
+			zIndex = 900,
+		},
+	},
+	) {
+		if UI(ID("gameover_root"))(
+		clay.ElementDeclaration {
+			layout = clay.LayoutConfig {
+				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+				layoutDirection = .TopToBottom,
+				childAlignment = {x = .Center, y = .Center},
+				childGap = 20,
+			},
+		},
+		) {
+			clay.Text(
+				"game over!",
+				clay.TextElementConfig {
+					fontId = 0,
+					fontSize = 144,
+					textColor = {255, 255, 255, 255},
+				},
+			)
+
+			if image_button(
+				ID("restart_button"),
+				&game.assets.restart_button_tex,
+				260 * 1.5,
+				60 * 1.5,
+			) {
+				restart_game(game)
+			}
+
+			if image_button(
+				ID("main_menu_button"),
+				&game.assets.menu_button_tex,
+				260 * 1.5,
+				60 * 1.5,
+			) {
+				game.play_state = .MainMenu
+			}
+		}
+	}
+}
+
+image_button :: proc(id: clay.ElementId, tex: ^Texture2D, width, height: f32) -> bool {
 	clicked := false
 
 	if UI(id)(
