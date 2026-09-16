@@ -67,7 +67,6 @@ create_level :: proc(dirname: string) -> Level {
 	old_alloc := context.allocator
 	context.allocator = alloc
 
-	fmt.println(arena_conf_path)
 	arena_conf, err := os.read_entire_file(arena_conf_path, alloc)
 	if err != nil {fmt.panicf("failed to load arena config! %v %v", arena_conf_path, err)}
 
@@ -173,7 +172,7 @@ create_level :: proc(dirname: string) -> Level {
 			tagged       = i == 0,
 			animation    = {},
 			tex          = ptex,
-			pid          = 0,
+			pid          = uint(pid),
 			triangle_tex = ttex,
 			rotation     = 0,
 			grounded     = false,
@@ -238,8 +237,9 @@ get_maps_json :: proc() -> []string {
 }
 
 new_game :: proc() -> Game {
-	arena := create_level("grass")
-	return create_game({arena})
+	levels := make([dynamic]Level)
+	append(&levels, create_level("grass"))
+	return create_game(levels[:])
 }
 
 restart_game :: proc(game: ^Game) {

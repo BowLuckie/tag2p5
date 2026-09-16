@@ -30,7 +30,7 @@ load_tilemap :: proc(
 
 	layer := tmap.layers[0]
 
-	img_path := fmt.ctprint(ASSET_DIR, "arenas/", dirname, tmap.tilesets[0].image, sep = "")
+	img_path := fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, tmap.tilesets[0].image)
 	tileset_tex := rl.LoadTexture(img_path)
 	fmt.eprintln(img_path)
 

@@ -5,3 +5,5 @@ build/
 *.out
 
 tag-* 
+main
+vgcore.*
