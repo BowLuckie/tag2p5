@@ -1,51 +1,81 @@
 # Tag 2.5
 
+A local multiplayer tag game with physics, built in [Odin](https://odin-lang.org/) with [Raylib](https://www.raylib.com/) and [Clay](https://github.com/nicbarker/clay).
+
+One player is it, marked with an arrow on their head, and if any other player contacts them, they become the tagged player. as of right now,
+only one player can be tagged at a time. Once the timer ends, the player who is it will lose.
+
+## Controls
+
+| Player | Move | Jump |
+|--------|------|------|
+| 1 (blue) | A/D | W |
+| 2 (red) | Left/Right arrows | Up arrow |
+
 ## Building
 
-To build and run, just run the supplied just script, which leverages Odin's fast
-and simple build pipeline. Ensure the Odin compiler is installed and your vendor
-libraries have been properly set up.
+Requires the [Odin compiler](https://odin-lang.org/) with vendor libraries installed.
 
-## Improvements over the commercial tags
-
-Unlike the commercial Tag, Tag 2.5 is completely open source and free.
-It is also easy to create your own maps and tilesets in Tag 2.5 because so much
-stuff is generated from JSON instead of being hardcoded. In fact, our Tag is so
-much lighter that the binary is only a few MB and the codebase has a light
-650 lines of code, as of when this was written. This is because instead of a
-huge Unity runtime binary being shipped along with Tag 1 and 2, Tag 2.5 was written
-entirely in Odin, which lets it run almost as fast as C.
-
-## Making maps
-
-In order to make maps, you need a few things: the Tiled map editor, your pixel art
-designer of choice, the Odin compiler and a copy of its vendor library. If you
-are on Windows, you might also need MSVC for linking. The compiler is needed
-because there is currently no way to switch on what arena you want to play, so
-you need to change some hardcoded values.
-
-It is recommended that you keep the tiles small, recommended 16x16, because that's
-what the player size is built off. After you have made a tileset, you can import
-it into Tiled. It's very important that you check the embed in map button when adding
-the tileset because our JSON parser won't be able to open a .tsx or .tmx that contains
-the tileset data. To add collision to your tiles, edit the embedded set and add
-a custom property to each tile you want to have collision. It doesn't matter its
-name, but it must be a list of floats. It is recommended to not add any other custom
-properties either.
-
-To configure the collision data, add pairs of floats to define points, and our
-tilemap parser and generator will draw segments between each point you have defined.
-There MAY be some performance issues with having too many segments in one arena,
-but I am yet to discover that limit. The points are based off offsets from the
-top-left, with higher y values being lower down. This means that the top-left is
-`(0,0)`, top-right is `(1, 0)`, bottom-left `(0, 1)`, bottom-right `(1,1)`.
-
-Once you have finished your map, export the whole thing into the static folder
-as JSON and change this line in the `create_test_game` function of `game.odin`:
-
-```odin
-return create_game(STATIC_DIR + "pretty.json", player_configs[:])
+```sh
+just build    # build only
+just          # build and run
+just gdb      # build and run under gdb
 ```
 
-If your JSON is even slightly wrong, it can lead to severe memory bugs and
-panics.
+Or manually:
+
+```sh
+mkdir -p build
+odin build src -debug -out:build/main
+./build/main
+```
+
+## Making Maps
+
+Maps are defined by a directory under `assets/arenas/<name>/` containing:
+
+- **`<name>.txt`**: arena config, see format below
+- **`pretty.json`**:  a Tiled `.tmx` exported as JSON, must use the "Embed in Map" option when adding the tileset to Tiled, otherwise the parser will fail
+- **`*.png`**: tileset image, parallax background layers, and a thumbnail
+
+### Arena config format
+
+```
+name: grass
+layer: bg3.png 0.6
+layer: bg2.png 1
+layer: bg.png 1.2
+tilemap: pretty.json
+player: 300 400
+player: 400 350
+thumb: maynard.png
+```
+
+| Key | Purpose |
+|-----|---------|
+| `name` | Display name shown on the map select screen |
+| `layer` | A parallax background image and its scroll factor (lower = slower, i.e. farther away) |
+| `tilemap` | Path to the Tiled JSON export |
+| `player` | Spawn position as `x y` (pixel coordinates); one `player` line per player |
+| `thumb` | Thumbnail image shown in the map select screen |
+
+### Tileset collision
+
+Add a custom property (any name, type list of floats) to each tile in your Tiled tileset. The floats define a polyline as `(x0, y0, x1, y1, ...)` in normalized tile coordinates where `(0,0)` is top-left and `(1,1)` is bottom-right. Segments are drawn between consecutive points to form collision geometry.
+
+Recommended tile size is 16×16, matching `PLAYER_RAD`.
+
+## Tech
+
+- **Odin** — the language and build system
+- **Raylib** — windowing, rendering, input, texture loading
+- **Clay** — retained-mode UI (menus, HUD, map select) with a Raylib renderer
+- **Tiled** — map editor; the JSON parser reads embedded tilesets and per-tile collision data directly
+
+## Acknowledgements
+
+Thanks to [Nic Barker](https://github.com/nicbarker) for [Clay](https://github.com/nicbarker/clay), it made the UI layer a pleasure to build
+
+## License
+
+Public domain ([Unlicense](https://unlicense.org)).
