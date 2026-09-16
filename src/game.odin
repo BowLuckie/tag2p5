@@ -20,54 +20,68 @@ update_camera :: proc(
 ) {
 	if len(players) == 0 do return
 
+	// Bounding box of all players, plus padding
 	min_x := players[0].center.x
 	max_x := players[0].center.x
 	min_y := players[0].center.y
 	max_y := players[0].center.y
 
-	sum := players[0].center
 	for i in 1 ..< len(players) {
 		p := players[i].center
-		sum += p
 		min_x = min(min_x, p.x)
 		max_x = max(max_x, p.x)
 		min_y = min(min_y, p.y)
 		max_y = max(max_y, p.y)
 	}
 
-	target := sum / f32(len(players))
-
 	min_x -= CAM_PADDING_X
 	max_x += CAM_PADDING_X
 	min_y -= CAM_PADDING_Y
 	max_y += CAM_PADDING_Y
 
-	needed_w := max_x - min_x
-	needed_h := max_y - min_y
+	bounds_w := max_x - min_x
+	bounds_h := max_y - min_y
 
-	zoom_x := screen_w / needed_w
-	zoom_y := screen_h / needed_h
-	zoom := min(zoom_x, zoom_y)
-
-	zoom = clamp(zoom, 0, MAX_ZOOM)
-
-	t_pos := clamp(CAM_FOLLOW_SPEED * dt, 0, 1)
-	t_zoom := clamp(CAM_ZOOM_SPEED * dt, 0, 1)
-	gc.cam.target = linalg.lerp(gc.cam.target, target, t_pos)
-	gc.cam.zoom = math.lerp(gc.cam.zoom, zoom, t_zoom)
+	// Zoom so the whole padded box fits on screen — snap, never lerp
+	zoom_x := screen_w / bounds_w
+	zoom_y := screen_h / bounds_h
+	gc.cam.zoom = clamp(min(zoom_x, zoom_y), 0, MAX_ZOOM)
 
 	half_view_w := (screen_w / 2) / gc.cam.zoom
 	half_view_h := (screen_h / 2) / gc.cam.zoom
-	min_tx := half_view_w
-	max_tx := arena_w - half_view_w
-	min_ty := half_view_h
-	max_ty := arena_h - half_view_h
-	if max_tx < min_tx {max_tx = min_tx}
-	gc.cam.target.x = clamp(gc.cam.target.x, min_tx, max_tx)
-	if max_ty < min_ty {
+
+	// Smoothly follow the center of the box
+	desired := Vector2{min_x + bounds_w / 2, min_y + bounds_h / 2}
+	t_pos := clamp(CAM_FOLLOW_SPEED * dt, 0, 1)
+	gc.cam.target = linalg.lerp(gc.cam.target, desired, t_pos)
+
+	// Guarantee: every player must be inside the view
+	for player in players {
+		if player.center.x - half_view_w > gc.cam.target.x {
+			gc.cam.target.x = player.center.x - half_view_w
+		}
+		if player.center.x + half_view_w < gc.cam.target.x {
+			gc.cam.target.x = player.center.x + half_view_w
+		}
+		if player.center.y - half_view_h > gc.cam.target.y {
+			gc.cam.target.y = player.center.y - half_view_h
+		}
+		if player.center.y + half_view_h < gc.cam.target.y {
+			gc.cam.target.y = player.center.y + half_view_h
+		}
+	}
+
+	// Arena bounds: X within arena, Y only clamp bottom (top free)
+	if arena_w <= 2 * half_view_w {
+		gc.cam.target.x = arena_w / 2
+	} else {
+		gc.cam.target.x = clamp(gc.cam.target.x, half_view_w, arena_w - half_view_w)
+	}
+
+	if arena_h <= 2 * half_view_h {
 		gc.cam.target.y = arena_h - half_view_h
 	} else {
-		gc.cam.target.y = clamp(gc.cam.target.y, min_ty, max_ty)
+		gc.cam.target.y = min(gc.cam.target.y, arena_h - half_view_h)
 	}
 
 	gc.cam.offset = {screen_w / 2, screen_h / 2}
@@ -76,13 +90,15 @@ update_camera :: proc(
 free_game :: proc(game: ^Game) {
 	if len(game.levels) == 0 {return}
 
-	free_arena(&game.levels[0].arena)
+	for &lvl in game.levels {
+		free_arena(&lvl.arena)
 
-	for p in game.levels[0].players {
-		rl.UnloadTexture(p.tex)
-		rl.UnloadTexture(p.triangle_tex)
+		for p in lvl.players {
+			rl.UnloadTexture(p.tex)
+			rl.UnloadTexture(p.triangle_tex)
+		}
+		delete(lvl.players)
 	}
-	delete(game.levels[0].players)
 
 	delete(game.levels)
 }
@@ -191,17 +207,8 @@ create_level :: proc(dirname: string) -> Level {
 	players := make([]Player, len(pspawns))
 	for player_spawn, i in pspawns {
 		pid := i
-		ptex, ttex: Texture2D
-		if pid == 0 {
-			ptex = rl.LoadTexture(ASSET_DIR + "blue_p.png")
-			ttex = rl.LoadTexture(ASSET_DIR + "triangle_b.png")
-		} else if pid == 1 {
-			ptex = rl.LoadTexture(ASSET_DIR + "red_p.png")
-			ttex = rl.LoadTexture(ASSET_DIR + "triangle_r.png")
-		} else {
-			ptex = rl.LoadTexture(ASSET_DIR + "placeholder_p.png")
-			ttex = rl.LoadTexture(ASSET_DIR + "triangle_place.png")
-		}
+		ptex := rl.LoadTexture(fmt.ctprintf("%splayer_%d.png", ASSET_DIR, pid))
+		ttex := rl.LoadTexture(fmt.ctprintf("%striangle_%d.png", ASSET_DIR, pid))
 
 		players[i] = Player {
 			center       = player_spawn,
@@ -284,6 +291,7 @@ new_game :: proc() -> Game {
 		parts := strings.split(string(path), "/")
 		dirname := parts[len(parts) - 1]
 		append(&levels, create_level(dirname))
+		delete(parts)
 	}
 	return create_game(levels[:])
 }

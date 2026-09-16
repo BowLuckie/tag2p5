@@ -22,7 +22,7 @@ p2_movement :: proc() -> (dir: f32, jump: bool) {
 ai_callback :: proc() -> (dir: f32, jump: bool) {
 	dir = f32(rand.uint32_max(5)) - 2
 	jump_c := rand.uint32_max(1000)
-	jump = jump_c > 998
+	jump = jump_c > 930
 	return
 }
 
