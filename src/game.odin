@@ -55,7 +55,8 @@ make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^
 	return Button{rect, glyph, on_click}
 }
 
-create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
+create_level :: proc(dirname: string) -> Level {
+	arena_conf_path := fmt.aprintf("%sarenas/%s/%s.txt", ASSET_DIR, dirname, dirname)
 	arena_buf := make([]u8, ARENA_BUF_SIZE)
 	a: mem.Arena
 	mem.arena_init(&a, arena_buf)
@@ -66,8 +67,9 @@ create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
 	old_alloc := context.allocator
 	context.allocator = alloc
 
+	fmt.println(arena_conf_path)
 	arena_conf, err := os.read_entire_file(arena_conf_path, alloc)
-	if err != nil {fmt.panicf("failed to load arena config! %v", err)}
+	if err != nil {fmt.panicf("failed to load arena config! %v %v", arena_conf_path, err)}
 
 	lines, errstr := strings.split_lines(string(arena_conf))
 	if errstr != nil {fmt.panicf("allocator error! %v", errstr)}
@@ -96,7 +98,7 @@ create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
 				&layers,
 				ParallaxLayer {
 					tex = rl.LoadTexture(
-						fmt.ctprintf("%sarenas/%s%s", ASSET_DIR, dirname, words[1]),
+						fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, words[1]),
 					),
 					factor = val32,
 				},
@@ -105,7 +107,7 @@ create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
 		case "tilemap":
 			assert(len(words) == 2)
 			tmap, errt := load_tilemap(
-				fmt.aprintf("%sarenas/%s%s", ASSET_DIR, dirname, words[1]),
+				fmt.aprintf("%sarenas/%s/%s", ASSET_DIR, dirname, words[1]),
 				dirname,
 				alloc,
 			)
@@ -127,7 +129,8 @@ create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
 
 		case "thumb":
 			assert(len(words) == 2)
-
+			thumbpth := fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, words[1])
+			thumb = rl.LoadTexture(thumbpth)
 
 		case:
 			fmt.panicf("unknown arena config key: %s", term)
@@ -141,7 +144,6 @@ create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
 	arena.arena_buf = arena_buf
 	arena.arena = a
 
-	/*
 	gc := GameCamera {
 		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
 		min_zoom = 0,
@@ -149,41 +151,34 @@ create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
 		padding = CAM_PADDING,
 	}
 
-	assets := GuiAssets {
-		play_button_tex    = play_tex,
-		quit_button_tex    = mm_tex,
-		pause_button_tex   = pause_tex,
-		menu_button_tex    = mm_tex,
-		restart_button_tex = restart_tex,
+	players := make([]Entity, len(pspawns))
+	for player_spawn, i in pspawns {
+		pid := i
+		ptex, ttex: Texture2D
+		if pid == 0 {
+			ptex = rl.LoadTexture(ASSET_DIR + "blue_p.png")
+			ttex = rl.LoadTexture(ASSET_DIR + "triangle_b.png")
+		} else if pid == 1 {
+			ptex = rl.LoadTexture(ASSET_DIR + "red_p.png")
+			ttex = rl.LoadTexture(ASSET_DIR + "triangle_r.png")
+		} else {
+			ptex = rl.LoadTexture(ASSET_DIR + "placeholder_p.png")
+			ttex = rl.LoadTexture(ASSET_DIR + "triangle_place.png")
+		}
+
+		players[i] = Entity {
+			center       = player_spawn,
+			vel          = {0, 0},
+			radius       = PLAYER_RAD,
+			tagged       = i == 0,
+			animation    = {},
+			tex          = ptex,
+			pid          = 0,
+			triangle_tex = ttex,
+			rotation     = 0,
+			grounded     = false,
+		}
 	}
-
-	level := Level {
-		gc        = gc,
-		arena     = arenas,
-		players   = players,
-		last_tag  = 0,
-		game_time = game_time,
-		thumb     = rl.LoadTexture(ASSET_DIR + "maynard.png"),
-	}
-
-    src.Arena :: struct {
-        tilemap:   Tilemap,
-        bg_layers: []ParallaxLayer,
-        segments:  []Segment,
-        pspawns:   []Vector2,
-        arena_buf: []u8,
-        arena:     mem.Arena,
-    }
-    */
-
-	gc := GameCamera {
-		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
-		min_zoom = 0,
-		max_zoom = MAX_ZOOM,
-		padding = CAM_PADDING,
-	}
-
-	players := make([dynamic]Entity, len(pspawns))
 
 	return Level {
 		gc = gc,
@@ -209,55 +204,12 @@ create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
 	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
 	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
 
-	/*
-	players := make([]Entity, len(player_configs))
-	for i in 0 ..< len(player_configs) {
-		pc := player_configs[i]
-		animation := pc.animation
-		if animation.frame_duration <= 0 do animation.frame_duration = 0.5
-		if animation.tile_count == 0 do animation.tile_count = 15
-		if animation.columns == 0 do animation.columns = 5
-		if animation.tile_h == 0 do animation.tile_h = 16
-		if animation.tile_w == 0 do animation.tile_w = 16
-
-		center := Vector2{0, 0}
-		if i < len(arenas.pspawns) {
-			center = arenas.pspawns[i]
-		}
-
-		players[i] = Entity {
-			center       = center,
-			vel          = 0,
-			radius       = pc.radius,
-			tagged       = i == 0,
-			animation    = animation,
-			tex          = pc.tex,
-			pid          = pc.pid,
-			triangle_tex = pc.triangle_tex,
-		}
-	}
-    */
-
-	gc := GameCamera {
-		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
-		min_zoom = 0,
-		max_zoom = MAX_ZOOM,
-		padding = CAM_PADDING,
-	}
-
 	assets := GuiAssets {
 		play_button_tex    = play_tex,
 		quit_button_tex    = mm_tex,
 		pause_button_tex   = pause_tex,
 		menu_button_tex    = mm_tex,
 		restart_button_tex = restart_tex,
-	}
-
-	level := Level {
-		gc        = gc,
-		last_tag  = 0,
-		game_time = game_time,
-		thumb     = rl.LoadTexture(ASSET_DIR + "maynard.png"),
 	}
 
 	game := Game {
@@ -286,34 +238,7 @@ get_maps_json :: proc() -> []string {
 }
 
 new_game :: proc() -> Game {
-	player_anim := AnimationObj { 	// currently not using
-		frame_duration = 0.1,
-		tile_count     = 3,
-		columns        = 1,
-		tile_w         = 64,
-		tile_h         = 64,
-		tilesheet      = {},
-	}
-
-	arena := create_level(ASSET_DIR + "arenas/grass/grass.txt", "grass/")
-
-	player_configs := [2]PlayerConfig {
-		{
-			radius = PLAYER_RAD,
-			movement_callback = p1_movement,
-			tex = rl.LoadTexture(ASSET_DIR + "blue_p.png"),
-			triangle_tex = rl.LoadTexture(ASSET_DIR + "triangle_b.png"),
-			pid = 0,
-		},
-		{
-			radius = PLAYER_RAD,
-			movement_callback = p2_movement,
-			tex = rl.LoadTexture(ASSET_DIR + "red_p.png"),
-			triangle_tex = rl.LoadTexture(ASSET_DIR + "triangle_r.png"),
-			pid = 1,
-		},
-	}
-
+	arena := create_level("grass")
 	return create_game({arena})
 }
 
