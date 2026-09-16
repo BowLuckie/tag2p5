@@ -33,7 +33,7 @@ project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
 	return a + ab * t
 }
 
-resolve_circ_seg :: proc "contextless" (e: ^Entity, seg: Segment) -> (hit: bool, normal: Vector2) {
+resolve_circ_seg :: proc "contextless" (e: ^Player, seg: Segment) -> (hit: bool, normal: Vector2) {
 	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.aabb) {
 		return false, {}
 	}
@@ -69,7 +69,7 @@ resolve_circ_seg :: proc "contextless" (e: ^Entity, seg: Segment) -> (hit: bool,
 	return true, n
 }
 
-update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
+update_entity :: proc(arena: []Segment, e: ^Player, dt: f32) {
 	movement_callback := ai_callback
 
 	if e.pid == 0 {
@@ -118,6 +118,12 @@ update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
 		e.grounded = false
 		e.coyote_time = 0
 	}
+
+	if e.vel.x < 0 {
+		e.orientation = -1
+	} else if e.vel.x > 0 {
+		e.orientation = 1
+	}
 }
 
 aabb :: proc(a, b: Aabb) -> bool {
@@ -133,7 +139,7 @@ aabb_circ :: proc(center: rl.Vector2, radius: f32, r: Aabb) -> bool {
 }
 
 
-entity_tagging :: proc(e1, e2: ^Entity) -> bool {
+entity_tagging :: proc(e1, e2: ^Player) -> bool {
 	diff := e1.center - e2.center
 	dist := linalg.length(diff)
 	min_dist := e1.radius + e2.radius
@@ -158,7 +164,7 @@ resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
 	}
 }
 
-resolve_tag :: proc(e1, e2: ^Entity, game: ^Game) {
+resolve_tag :: proc(e1, e2: ^Player, game: ^Game) {
 	game.levels[game.lvl_idx].last_tag = TAG_IMMUNITY
 	e1.tagged, e2.tagged = e2.tagged, e1.tagged
 }

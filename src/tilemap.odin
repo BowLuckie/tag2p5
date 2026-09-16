@@ -32,7 +32,6 @@ load_tilemap :: proc(
 
 	img_path := fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, tmap.tilesets[0].image)
 	tileset_tex := rl.LoadTexture(img_path)
-	fmt.eprintln(img_path)
 
 	collide_data := make(map[u32][]f64, allocator)
 
@@ -144,14 +143,6 @@ segs_from_cdat :: proc(
 	return segments[:]
 }
 
-squash_pairs :: proc(upaired: []f64, allocator: mem.Allocator) -> []Vector2 {
-	assert(len(upaired) % 2 == 0, "malformed collision data pairings")
-	result := make([]Vector2, len(upaired) / 2, allocator)
-	for i in 0 ..< len(result) {
-		result[i] = Vector2{f32(upaired[i * 2]), f32(upaired[i * 2 + 1])}
-	}
-	return result
-}
 
 draw_tilemap :: proc(tilemap: Tilemap) {
 	for y := 0; y < tilemap.height; y += 1 {

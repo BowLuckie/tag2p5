@@ -29,10 +29,11 @@ Game :: struct {
 Level :: struct {
 	gc:        GameCamera,
 	arena:     Arena,
-	players:   []Entity,
+	players:   []Player,
 	last_tag:  f32,
 	game_time: f32,
 	thumb:     Texture2D,
+	title:     string,
 }
 
 GuiAssets :: struct {
@@ -48,7 +49,7 @@ Segment :: struct {
 	aabb: Aabb,
 }
 
-Entity :: struct {
+Player :: struct {
 	center:       Vector2,
 	vel:          Vector2,
 	radius:       f32,
@@ -60,6 +61,7 @@ Entity :: struct {
 	triangle_tex: Texture2D,
 	rotation:     f32,
 	pid:          uint,
+	orientation:  f32,
 }
 
 // currently not used in game
@@ -76,10 +78,7 @@ AnimationObj :: struct {
 }
 
 GameCamera :: struct {
-	cam:      rl.Camera2D,
-	min_zoom: f32,
-	max_zoom: f32,
-	padding:  f32,
+	cam: rl.Camera2D,
 }
 
 GameMode :: enum {

@@ -12,13 +12,35 @@ import "core:strings"
 import "renderer"
 import rl "vendor:raylib"
 
-update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: f32) {
-	target := (p1 + p2) / 2
+update_camera :: proc(
+	gc: ^GameCamera,
+	players: []Player,
+	screen_w, screen_h, dt: f32,
+	arena_w, arena_h: f32,
+) {
+	if len(players) == 0 do return
 
-	min_x := min(p1.x, p2.x) - CAM_PADDING
-	max_x := max(p1.x, p2.x) + CAM_PADDING
-	min_y := min(p1.y, p2.y) - CAM_PADDING
-	max_y := max(p1.y, p2.y) + CAM_PADDING
+	min_x := players[0].center.x
+	max_x := players[0].center.x
+	min_y := players[0].center.y
+	max_y := players[0].center.y
+
+	sum := players[0].center
+	for i in 1 ..< len(players) {
+		p := players[i].center
+		sum += p
+		min_x = min(min_x, p.x)
+		max_x = max(max_x, p.x)
+		min_y = min(min_y, p.y)
+		max_y = max(max_y, p.y)
+	}
+
+	target := sum / f32(len(players))
+
+	min_x -= CAM_PADDING_X
+	max_x += CAM_PADDING_X
+	min_y -= CAM_PADDING_Y
+	max_y += CAM_PADDING_Y
 
 	needed_w := max_x - min_x
 	needed_h := max_y - min_y
@@ -27,12 +49,28 @@ update_camera :: proc(gc: ^GameCamera, p1, p2: Vector2, screen_w, screen_h, dt: 
 	zoom_y := screen_h / needed_h
 	zoom := min(zoom_x, zoom_y)
 
-	zoom = clamp(zoom, gc.min_zoom, gc.max_zoom)
+	zoom = clamp(zoom, 0, MAX_ZOOM)
 
 	t_pos := clamp(CAM_FOLLOW_SPEED * dt, 0, 1)
 	t_zoom := clamp(CAM_ZOOM_SPEED * dt, 0, 1)
 	gc.cam.target = linalg.lerp(gc.cam.target, target, t_pos)
 	gc.cam.zoom = math.lerp(gc.cam.zoom, zoom, t_zoom)
+
+	// clamp to arena bounds, prefer bottom
+	half_view_w := (screen_w / 2) / gc.cam.zoom
+	half_view_h := (screen_h / 2) / gc.cam.zoom
+	min_tx := half_view_w
+	max_tx := arena_w - half_view_w
+	min_ty := half_view_h
+	max_ty := arena_h - half_view_h
+	if max_tx < min_tx {max_tx = min_tx}
+	gc.cam.target.x = clamp(gc.cam.target.x, min_tx, max_tx)
+	if max_ty < min_ty {
+		// arena smaller than viewport — pin to bottom so viewport bottom = arena bottom
+		gc.cam.target.y = arena_h - half_view_h
+	} else {
+		gc.cam.target.y = clamp(gc.cam.target.y, min_ty, max_ty)
+	}
 
 	gc.cam.offset = {screen_w / 2, screen_h / 2}
 }
@@ -76,6 +114,9 @@ create_level :: proc(dirname: string) -> Level {
 	layers := make([dynamic]ParallaxLayer, alloc)
 	pspawns := make([dynamic]Vector2, alloc)
 	thumb: rl.Texture2D
+	title: string
+
+	filler_tex := rl.LoadTexture(ASSET_DIR + "filler.png")
 
 	for line in lines {
 		words := strings.fields(line)
@@ -86,6 +127,7 @@ create_level :: proc(dirname: string) -> Level {
 		switch term {
 		case "name":
 			assert(len(words) == 2)
+			title = words[1]
 
 		case "layer":
 			assert(len(words) == 3)
@@ -136,6 +178,8 @@ create_level :: proc(dirname: string) -> Level {
 		}
 	}
 
+	append(&layers, ParallaxLayer{tex = filler_tex, factor = 0})
+
 	context.allocator = old_alloc
 
 	arena.bg_layers = layers[:]
@@ -145,12 +189,9 @@ create_level :: proc(dirname: string) -> Level {
 
 	gc := GameCamera {
 		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
-		min_zoom = 0,
-		max_zoom = MAX_ZOOM,
-		padding = CAM_PADDING,
 	}
 
-	players := make([]Entity, len(pspawns))
+	players := make([]Player, len(pspawns))
 	for player_spawn, i in pspawns {
 		pid := i
 		ptex, ttex: Texture2D
@@ -165,7 +206,7 @@ create_level :: proc(dirname: string) -> Level {
 			ttex = rl.LoadTexture(ASSET_DIR + "triangle_place.png")
 		}
 
-		players[i] = Entity {
+		players[i] = Player {
 			center       = player_spawn,
 			vel          = {0, 0},
 			radius       = PLAYER_RAD,
@@ -179,6 +220,8 @@ create_level :: proc(dirname: string) -> Level {
 		}
 	}
 
+	delete(arena_conf_path)
+
 	return Level {
 		gc = gc,
 		arena = arena,
@@ -186,6 +229,7 @@ create_level :: proc(dirname: string) -> Level {
 		last_tag = 0,
 		game_time = GAME_TIME,
 		thumb = thumb,
+		title = title,
 	}
 }
 
@@ -256,14 +300,10 @@ update_game :: proc(game: ^Game, dt: f32) {
 
 	resolve_entity_tagging(game, dt)
 
-	update_camera(
-		&game.levels[game.lvl_idx].gc,
-		game.levels[game.lvl_idx].players[0].center,
-		game.levels[game.lvl_idx].players[1].center,
-		GAME_WIDTH,
-		GAME_HEIGHT,
-		dt,
-	)
+	lvl := &game.levels[game.lvl_idx]
+	arena_w := f32(lvl.arena.tilemap.width) * f32(lvl.arena.tilemap.tile_width)
+	arena_h := f32(lvl.arena.tilemap.height) * f32(lvl.arena.tilemap.tile_height)
+	update_camera(&lvl.gc, lvl.players, GAME_WIDTH, GAME_HEIGHT, dt, arena_w, arena_h)
 
 	game.levels[game.lvl_idx].game_time -= dt
 	if game.levels[game.lvl_idx].game_time < 0.8 {
@@ -273,11 +313,10 @@ update_game :: proc(game: ^Game, dt: f32) {
 }
 
 
-draw_entity :: proc(e: Entity) {
-	sign: f32 = 1
-	if e.vel.x < 0 {
-		sign = -1
-	}
+draw_entity :: proc(e: Player) {
+	sign: f32 = math.sign(e.orientation + 0.002)
+	// this is to make sure sign isnt 0, becuase
+	// e.orientation is unlikley to ever be -0.002
 
 	rl.DrawTexturePro(
 		e.tex,
@@ -293,7 +332,7 @@ draw_entity :: proc(e: Entity) {
 	}
 }
 
-draw_triangle :: proc(e: Entity) {
+draw_triangle :: proc(e: Player) {
 	rl.DrawTexture(
 		e.triangle_tex,
 		i32(e.center.x) - (e.triangle_tex.width / 2) + 1,
@@ -572,7 +611,7 @@ ui_map_select :: proc(game: ^Game) {
 						) {}
 
 						clay.Text(
-							fmt.tprintf("MAP %d", i + 1),
+							fmt.tprintf("%s", game.levels[i].title),
 							clay.TextElementConfig {
 								fontId = 0,
 								fontSize = 40,
@@ -766,39 +805,12 @@ image_button :: proc(id: clay.ElementId, tex: ^Texture2D, width, height: f32) ->
 	return clicked
 }
 
-draw_buttons :: proc(buttons: []Button) {
-	for btn in buttons {
-		tex_w := f32(btn.glyph.width)
-		tex_h := f32(btn.glyph.height)
-
-		scale := min(btn.rect.width / tex_w, btn.rect.height / tex_h)
-		draw_w := tex_w * scale
-		draw_h := tex_h * scale
-
-		dest := rl.Rectangle {
-			btn.rect.x + (btn.rect.width - draw_w) / 2,
-			btn.rect.y + (btn.rect.height - draw_h) / 2,
-			draw_w,
-			draw_h,
-		}
-
-		src := rl.Rectangle{0, 0, tex_w, tex_h}
-		rl.DrawTexturePro(btn.glyph, src, dest, {0, 0}, 0, rl.WHITE)
-	}
-}
-
-draw_labels :: proc(labels: []Label) {
-	for lbl in labels {
-		draw_text(lbl.text, lbl.font_size, lbl.posx, lbl.posy, lbl.color)
-	}
-}
-
 update_animation :: proc {
 	update_animation_a,
 	update_animation_e,
 }
 
-update_animation_e :: proc(entity: ^Entity, dt: f32) {
+update_animation_e :: proc(entity: ^Player, dt: f32) {
 	update_animation(&entity.animation, dt)
 }
 

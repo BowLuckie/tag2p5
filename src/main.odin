@@ -7,11 +7,6 @@ import "core:mem"
 import "renderer"
 import rl "vendor:raylib"
 
-_clay_error_handler :: proc "c" (errorData: clay.ErrorData) {
-	context = runtime.default_context()
-	fmt.panicf("clay error: %d\n", errorData.errorType)
-}
-
 main :: proc() {
 	when ODIN_DEBUG {
 		track: mem.Tracking_Allocator
