@@ -5,12 +5,7 @@ A local multiplayer tag game with physics, built in [Odin](https://odin-lang.org
 One player is it, marked with an arrow on their head, and if any other player contacts them, they become the tagged player. as of right now,
 only one player can be tagged at a time. Once the timer ends, the player who is it will lose.
 
-## Controls
-
-| Player | Move | Jump |
-|--------|------|------|
-| 1 (blue) | A/D | W |
-| 2 (red) | Left/Right arrows | Up arrow |
+p1 is controlled by A and D keys and p2 is left and right arrows.
 
 ## Building
 
