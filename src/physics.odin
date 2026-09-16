@@ -146,7 +146,6 @@ entity_tagging :: proc(e1, e2: ^Player) -> bool {
 	return dist < min_dist
 }
 
-// NOTE: last man standing mode?
 resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
 	level := &game.levels[game.lvl_idx]
 	level.last_tag -= dt
