@@ -70,9 +70,15 @@ resolve_circ_seg :: proc "contextless" (e: ^Entity, seg: Segment) -> (hit: bool,
 }
 
 update_entity :: proc(arena: []Segment, e: ^Entity, dt: f32) {
-	// update_animation(e, dt)
+	movement_callback := ai_callback
 
-	dir, jump := e.movement_callback()
+	if e.pid == 0 {
+		movement_callback = p1_movement
+	} else if e.pid == 1 {
+		movement_callback = p2_movement
+	}
+
+	dir, jump := movement_callback()
 
 	target_x := dir * MOVE_SPEED
 	t := clamp(DECAY_RATE * dt, 0, 1)

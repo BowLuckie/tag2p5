@@ -1,6 +1,5 @@
 package tag2p5
 
-
 import "core:encoding/json"
 import "core:fmt"
 import "core:mem"
@@ -11,7 +10,14 @@ FLIPPED_HORIZONTALLY :: 0x80000000
 FLIPPED_VERTICALLY :: 0x40000000
 FLIPPED_DIAGONALLY :: 0x20000000
 
-load_tilemap :: proc(path: string, allocator: mem.Allocator) -> (tilemap: Tilemap, err: os.Error) {
+load_tilemap :: proc(
+	path: string,
+	dirname: string,
+	allocator: mem.Allocator,
+) -> (
+	tilemap: Tilemap,
+	err: os.Error,
+) {
 	jasonb, e := os.read_entire_file(path, allocator)
 	if e != nil {return {}, e}
 
@@ -24,8 +30,9 @@ load_tilemap :: proc(path: string, allocator: mem.Allocator) -> (tilemap: Tilema
 
 	layer := tmap.layers[0]
 
-	img_path := fmt.ctprint(ASSET_DIR, tmap.tilesets[0].image, sep = "")
+	img_path := fmt.ctprint(ASSET_DIR, "arenas/", dirname, tmap.tilesets[0].image, sep = "")
 	tileset_tex := rl.LoadTexture(img_path)
+	fmt.eprintln(img_path)
 
 	collide_data := make(map[u32][]f64, allocator)
 
@@ -65,7 +72,6 @@ get_gid_and_flags :: proc(raw: u32) -> (gid: u32, flip_h, flip_v, flip_d: bool) 
 	return
 }
 
-
 generate_segments :: proc(tilemap: Tilemap, allocator: mem.Allocator) -> []Segment {
 	segments := make([dynamic]Segment, allocator)
 	for y := 0; y < tilemap.height; y += 1 {
@@ -74,7 +80,15 @@ generate_segments :: proc(tilemap: Tilemap, allocator: mem.Allocator) -> []Segme
 
 			raw := tilemap.tiles[index]
 			gid, flip_h, flip_v, flip_d := get_gid_and_flags(raw)
-			segs := segs_from_cdat(gid, flip_h, flip_v, flip_d, Vector2{f32(x), f32(y)}, tilemap, allocator)
+			segs := segs_from_cdat(
+				gid,
+				flip_h,
+				flip_v,
+				flip_d,
+				Vector2{f32(x), f32(y)},
+				tilemap,
+				allocator,
+			)
 
 			append(&segments, ..segs)
 		}
@@ -83,7 +97,13 @@ generate_segments :: proc(tilemap: Tilemap, allocator: mem.Allocator) -> []Segme
 	return segments[:]
 }
 
-segs_from_cdat :: proc(gid: u32, h, v, d: bool, world_tl: Vector2, tilemap: Tilemap, allocator: mem.Allocator) -> []Segment {
+segs_from_cdat :: proc(
+	gid: u32,
+	h, v, d: bool,
+	world_tl: Vector2,
+	tilemap: Tilemap,
+	allocator: mem.Allocator,
+) -> []Segment {
 	trueid := int(gid) - tilemap.first_gid
 	if trueid < 0 do return {}
 

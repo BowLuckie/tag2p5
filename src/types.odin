@@ -49,18 +49,17 @@ Segment :: struct {
 }
 
 Entity :: struct {
-	center:            Vector2,
-	vel:               Vector2,
-	radius:            f32,
-	grounded:          bool,
-	coyote_time:       f32,
-	tagged:            bool,
-	animation:         AnimationObj,
-	tex:               Texture2D,
-	triangle_tex:      Texture2D,
-	rotation:          f32,
-	pid:               uint,
-	movement_callback: proc() -> (dir: f32, jump: bool),
+	center:       Vector2,
+	vel:          Vector2,
+	radius:       f32,
+	grounded:     bool,
+	coyote_time:  f32,
+	tagged:       bool,
+	animation:    AnimationObj,
+	tex:          Texture2D,
+	triangle_tex: Texture2D,
+	rotation:     f32,
+	pid:          uint,
 }
 
 // currently not used in game

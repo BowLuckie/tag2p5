@@ -4,8 +4,13 @@ import rl "vendor:raylib"
 
 ASSET_DIR :: #config(ASSET_DIR, "./assets/")
 
+// the arena converts a web of thousands of allocations into a single onwed object
+// so here is where we store them so we can free them all at once.
+ARENA_BUF_SIZE :: 16 * 1024 * 1024
+
 GAME_WIDTH :: 2880
 GAME_HEIGHT :: 1920
+
 
 MAX_ZOOM :: 400
 CAM_PADDING :: 190
@@ -21,7 +26,7 @@ GROUND_SNAP_DIST :: 4
 
 COYOTE_TIME :: 0.2
 TAG_IMMUNITY :: 1.0
-GAME_TIME :: 2
+GAME_TIME :: 61
 
 PLAYER_RAD :: 15
 HAIRLINE_OVERLAP :: 0.9

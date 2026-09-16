@@ -6,6 +6,9 @@ import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:mem"
+import "core:os"
+import "core:strconv"
+import "core:strings"
 import "renderer"
 import rl "vendor:raylib"
 
@@ -52,77 +55,93 @@ make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^
 	return Button{rect, glyph, on_click}
 }
 
-create_arena :: proc(tilemap_path: string, pspawns: []Vector2) -> Arena {
-	arena_buf := make([]u8, 4 * 1024 * 1024)
+create_level :: proc(arena_conf_path: string, dirname: string) -> Level {
+	arena_buf := make([]u8, ARENA_BUF_SIZE)
 	a: mem.Arena
 	mem.arena_init(&a, arena_buf)
 	alloc := mem.arena_allocator(&a)
 
-	tilemap, err := load_tilemap(tilemap_path, alloc)
-	if err != nil {fmt.panicf("failed to load tilemap %s", err)}
+	arena: Arena = {}
+
+	old_alloc := context.allocator
+	context.allocator = alloc
+
+	arena_conf, err := os.read_entire_file(arena_conf_path, alloc)
+	if err != nil {fmt.panicf("failed to load arena config! %v", err)}
+
+	lines, errstr := strings.split_lines(string(arena_conf))
+	if errstr != nil {fmt.panicf("allocator error! %v", errstr)}
 
 	layers := make([dynamic]ParallaxLayer, alloc)
-	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "bg3.png"), 0.6})
-	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "bg2.png"), 0.8})
-	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "bg.png"), 0.99})
-	append(&layers, ParallaxLayer{rl.LoadTexture(ASSET_DIR + "filler.png"), 0})
+	pspawns := make([dynamic]Vector2, alloc)
+	thumb: rl.Texture2D
 
-	return Arena {
-		tilemap = tilemap,
-		segments = generate_segments(tilemap, alloc),
-		bg_layers = layers[:],
-		pspawns = pspawns,
-		arena_buf = arena_buf,
-		arena = a,
-	}
-}
-
-free_arena :: proc(arena: ^Arena) {
-	rl.UnloadTexture(arena.tilemap.tileset_tex)
-	for layer in arena.bg_layers {
-		rl.UnloadTexture(layer.tex)
-	}
-	delete(arena.arena_buf)
-}
-
-create_game :: proc(
-	arenas: Arena,
-	player_configs: []PlayerConfig,
-	game_time: f32 = GAME_TIME,
-) -> Game {
-	restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
-	play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
-	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
-	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
-
-	players := make([]Entity, len(player_configs))
-	for i in 0 ..< len(player_configs) {
-		pc := player_configs[i]
-		animation := pc.animation
-		if animation.frame_duration <= 0 do animation.frame_duration = 0.5
-		if animation.tile_count == 0 do animation.tile_count = 15
-		if animation.columns == 0 do animation.columns = 5
-		if animation.tile_h == 0 do animation.tile_h = 16
-		if animation.tile_w == 0 do animation.tile_w = 16
-
-		center := Vector2{0, 0}
-		if i < len(arenas.pspawns) {
-			center = arenas.pspawns[i]
+	for line in lines {
+		words := strings.fields(line)
+		if len(words) == 0 {
+			continue
 		}
+		term := strings.split(words[0], ":")[0]
+		switch term {
+		case "name":
+			assert(len(words) == 2)
 
-		players[i] = Entity {
-			center            = center,
-			vel               = 0,
-			radius            = pc.radius,
-			movement_callback = pc.movement_callback,
-			tagged            = i == 0,
-			animation         = animation,
-			tex               = pc.tex,
-			pid               = pc.pid,
-			triangle_tex      = pc.triangle_tex,
+		case "layer":
+			assert(len(words) == 3)
+			val32, ok32 := strconv.parse_f32(words[2])
+			if !ok32 {
+				fmt.panicf("failed to parse float factor for layer %s", words[1])
+			}
+			append(
+				&layers,
+				ParallaxLayer {
+					tex = rl.LoadTexture(
+						fmt.ctprintf("%sarenas/%s%s", ASSET_DIR, dirname, words[1]),
+					),
+					factor = val32,
+				},
+			)
+
+		case "tilemap":
+			assert(len(words) == 2)
+			tmap, errt := load_tilemap(
+				fmt.aprintf("%sarenas/%s%s", ASSET_DIR, dirname, words[1]),
+				dirname,
+				alloc,
+			)
+			if errt != nil {
+				fmt.panicf("an error occured loading the tilemap %w", errt)
+			}
+			arena.tilemap = tmap
+			arena.segments = generate_segments(tmap, alloc)
+
+		case "player":
+			assert(len(words) == 3)
+			xf32, okx32 := strconv.parse_f32(words[1])
+			yf32, oky32 := strconv.parse_f32(words[2])
+			if !okx32 || !oky32 {
+				fmt.panicf("failed to parse pspawns")
+			}
+			vec := Vector2{xf32, yf32}
+			append(&pspawns, vec)
+
+		case "thumb":
+			assert(len(words) == 2)
+
+
+		case:
+			fmt.panicf("unknown arena config key: %s", term)
 		}
 	}
 
+	context.allocator = old_alloc
+
+	arena.bg_layers = layers[:]
+	arena.pspawns = pspawns[:]
+	arena.arena_buf = arena_buf
+	arena.arena = a
+
+	/*
 	gc := GameCamera {
 		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
 		min_zoom = 0,
@@ -147,18 +166,103 @@ create_game :: proc(
 		thumb     = rl.LoadTexture(ASSET_DIR + "maynard.png"),
 	}
 
-	levels := make([dynamic]Level)
-	append(&levels, level)
-	append(&levels, level)
-	append(&levels, level)
-	append(&levels, level)
-	append(&levels, level)
-	append(&levels, level)
-	append(&levels, level)
+    src.Arena :: struct {
+        tilemap:   Tilemap,
+        bg_layers: []ParallaxLayer,
+        segments:  []Segment,
+        pspawns:   []Vector2,
+        arena_buf: []u8,
+        arena:     mem.Arena,
+    }
+    */
+
+	gc := GameCamera {
+		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
+		min_zoom = 0,
+		max_zoom = MAX_ZOOM,
+		padding = CAM_PADDING,
+	}
+
+	players := make([dynamic]Entity, len(pspawns))
+
+	return Level {
+		gc = gc,
+		arena = arena,
+		players = players[:],
+		last_tag = 0,
+		game_time = GAME_TIME,
+		thumb = thumb,
+	}
+}
+
+free_arena :: proc(arena: ^Arena) {
+	rl.UnloadTexture(arena.tilemap.tileset_tex)
+	for layer in arena.bg_layers {
+		rl.UnloadTexture(layer.tex)
+	}
+	delete(arena.arena_buf)
+}
+
+create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
+	restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
+	play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
+	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
+	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
+
+	/*
+	players := make([]Entity, len(player_configs))
+	for i in 0 ..< len(player_configs) {
+		pc := player_configs[i]
+		animation := pc.animation
+		if animation.frame_duration <= 0 do animation.frame_duration = 0.5
+		if animation.tile_count == 0 do animation.tile_count = 15
+		if animation.columns == 0 do animation.columns = 5
+		if animation.tile_h == 0 do animation.tile_h = 16
+		if animation.tile_w == 0 do animation.tile_w = 16
+
+		center := Vector2{0, 0}
+		if i < len(arenas.pspawns) {
+			center = arenas.pspawns[i]
+		}
+
+		players[i] = Entity {
+			center       = center,
+			vel          = 0,
+			radius       = pc.radius,
+			tagged       = i == 0,
+			animation    = animation,
+			tex          = pc.tex,
+			pid          = pc.pid,
+			triangle_tex = pc.triangle_tex,
+		}
+	}
+    */
+
+	gc := GameCamera {
+		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
+		min_zoom = 0,
+		max_zoom = MAX_ZOOM,
+		padding = CAM_PADDING,
+	}
+
+	assets := GuiAssets {
+		play_button_tex    = play_tex,
+		quit_button_tex    = mm_tex,
+		pause_button_tex   = pause_tex,
+		menu_button_tex    = mm_tex,
+		restart_button_tex = restart_tex,
+	}
+
+	level := Level {
+		gc        = gc,
+		last_tag  = 0,
+		game_time = game_time,
+		thumb     = rl.LoadTexture(ASSET_DIR + "maynard.png"),
+	}
 
 	game := Game {
 		play_state = .MainMenu,
-		levels = levels[:],
+		levels = levels,
 		assets = assets,
 		font = [Fonts]rl.Font {
 			.TheOneFont = rl.LoadFontEx("./assets/PeaberryBase.ttf", 50, nil, 0),
@@ -191,7 +295,7 @@ new_game :: proc() -> Game {
 		tilesheet      = {},
 	}
 
-	arena := create_arena(ASSET_DIR + "pretty.json", {{600, 300}, {800, 400}})
+	arena := create_level(ASSET_DIR + "arenas/grass/grass.txt", "grass/")
 
 	player_configs := [2]PlayerConfig {
 		{
@@ -199,7 +303,6 @@ new_game :: proc() -> Game {
 			movement_callback = p1_movement,
 			tex = rl.LoadTexture(ASSET_DIR + "blue_p.png"),
 			triangle_tex = rl.LoadTexture(ASSET_DIR + "triangle_b.png"),
-			animation = {},
 			pid = 0,
 		},
 		{
@@ -207,12 +310,11 @@ new_game :: proc() -> Game {
 			movement_callback = p2_movement,
 			tex = rl.LoadTexture(ASSET_DIR + "red_p.png"),
 			triangle_tex = rl.LoadTexture(ASSET_DIR + "triangle_r.png"),
-			animation = {},
 			pid = 1,
 		},
 	}
 
-	return create_game(arena, player_configs[:])
+	return create_game({arena})
 }
 
 restart_game :: proc(game: ^Game) {
@@ -358,7 +460,6 @@ draw_text :: proc(
 	text_width := rl.MeasureText(text, i32(font_size))
 	rl.DrawText(text, PosX - text_width / 2, PosY - i32(font_size) / 2, i32(font_size), color)
 }
-
 
 build_ui :: proc(game: ^Game) {
 	switch game.play_state {

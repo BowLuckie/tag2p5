@@ -1,0 +1,7 @@
+name: grass
+layer: bg.png 0.9
+layer: bg2.png 0.6
+layer: bg3.png 0.3
+tilemap: pretty.json
+player: 300 400
+player: 400 350
