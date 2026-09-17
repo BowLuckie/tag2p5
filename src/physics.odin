@@ -2,28 +2,33 @@ package tag2p5
 
 import "core:math"
 import "core:math/linalg"
-import "core:math/rand"
 import rl "vendor:raylib"
 
-p1_movement :: proc() -> (dir: f32, jump: bool) {
+p1_movement :: proc(self: ^Player, game: ^Game) -> (dir: f32, jump: bool) {
 	dir = 0
 	if rl.IsKeyDown(.A) do dir -= 1
 	if rl.IsKeyDown(.D) do dir += 1
 	return dir, rl.IsKeyDown(.W)
 }
 
-p2_movement :: proc() -> (dir: f32, jump: bool) {
+p2_movement :: proc(self: ^Player, game: ^Game) -> (dir: f32, jump: bool) {
 	dir = 0
 	if rl.IsKeyDown(.LEFT) do dir -= 1
 	if rl.IsKeyDown(.RIGHT) do dir += 1
 	return dir, rl.IsKeyDown(.UP)
 }
 
-ai_callback :: proc() -> (dir: f32, jump: bool) {
-	dir = f32(rand.uint32_max(5)) - 2
-	jump_c := rand.uint32_max(1000)
-	jump = jump_c > 930
-	return
+ai_callback :: proc(self: ^Player, game: ^Game) -> (dir: f32, jump: bool) {
+	t := game.levels[game.lvl_idx].game_time
+
+	seed := f32(self.pid) * 1.7
+	dir = math.sin(t * 0.6 + seed)
+	h := math.sin(t * 13.37 + seed * 91.0) * 43758.5453
+	h = h - math.floor(h)
+
+	jump = h < 0.02
+
+	return dir, jump
 }
 
 project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
@@ -34,7 +39,7 @@ project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
 }
 
 resolve_circ_seg :: proc "contextless" (e: ^Player, seg: Segment) -> (hit: bool, normal: Vector2) {
-	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.aabb) {
+	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.bound) {
 		return false, {}
 	}
 
@@ -69,7 +74,8 @@ resolve_circ_seg :: proc "contextless" (e: ^Player, seg: Segment) -> (hit: bool,
 	return true, n
 }
 
-update_entity :: proc(arena: []Segment, e: ^Player, dt: f32) {
+update_entity :: proc(game: ^Game, e: ^Player, dt: f32) {
+	arena := game.levels[game.lvl_idx].arena.segments
 	movement_callback := ai_callback
 
 	if e.pid == 0 {
@@ -78,7 +84,7 @@ update_entity :: proc(arena: []Segment, e: ^Player, dt: f32) {
 		movement_callback = p2_movement
 	}
 
-	dir, jump := movement_callback()
+	dir, jump := movement_callback(e, game)
 
 	target_x := dir * MOVE_SPEED
 	t := clamp(DECAY_RATE * dt, 0, 1)
@@ -126,18 +132,17 @@ update_entity :: proc(arena: []Segment, e: ^Player, dt: f32) {
 	}
 }
 
-aabb :: proc(a, b: Aabb) -> bool {
+aabb :: proc "contextless" (a, b: Aabb) -> bool {
 	return rl.CheckCollisionRecs(a, b)
 }
 
-aabb_pt :: proc(p: rl.Vector2, r: Aabb) -> bool {
+aabb_pt :: proc "contextless" (p: rl.Vector2, r: Aabb) -> bool {
 	return rl.CheckCollisionPointRec(p, r)
 }
 
-aabb_circ :: proc(center: rl.Vector2, radius: f32, r: Aabb) -> bool {
+aabb_circ :: proc "contextless" (center: rl.Vector2, radius: f32, r: Aabb) -> bool {
 	return rl.CheckCollisionCircleRec(center, radius, r)
 }
-
 
 entity_tagging :: proc(e1, e2: ^Player) -> bool {
 	diff := e1.center - e2.center

@@ -250,6 +250,7 @@ create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
 	play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
 	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
 	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
+	cursor_tex := rl.LoadTexture(ASSET_DIR + "player_1.png")
 
 	assets := GuiAssets {
 		play_button_tex    = play_tex,
@@ -257,15 +258,13 @@ create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
 		pause_button_tex   = pause_tex,
 		menu_button_tex    = mm_tex,
 		restart_button_tex = restart_tex,
+		cursor_tex         = cursor_tex,
 	}
 
 	game := Game {
 		play_state = .MainMenu,
-		levels = levels,
-		assets = assets,
-		font = [Fonts]rl.Font {
-			.TheOneFont = rl.LoadFontEx("./assets/PeaberryBase.ttf", 50, nil, 0),
-		},
+		levels     = levels,
+		assets     = assets,
 	}
 
 	return game
@@ -305,7 +304,7 @@ restart_game :: proc(game: ^Game) {
 update_game :: proc(game: ^Game, dt: f32) {
 	if game.play_state != .Playing {return}
 	for &player in game.levels[game.lvl_idx].players {
-		update_entity(game.levels[game.lvl_idx].arena.segments, &player, dt)
+		update_entity(game, &player, dt)
 	}
 
 	resolve_entity_tagging(game, dt)
@@ -359,6 +358,7 @@ draw_segs :: proc(segs: []Segment) {
 
 render_game :: proc(
 	game: ^Game,
+	mpos: Vector2,
 	target: rl.RenderTexture2D,
 	ui_commands: clay.ClayArray(clay.RenderCommand),
 ) {
@@ -386,6 +386,8 @@ render_game :: proc(
 
 	commands := ui_commands
 	renderer.clay_raylib_render(&commands)
+
+	rl.DrawTexture(game.assets.cursor_tex, i32(mpos.x), i32(mpos.y), rl.WHITE)
 }
 
 draw_parallax_layers :: proc(game: Game) {

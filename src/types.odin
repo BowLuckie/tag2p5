@@ -42,11 +42,12 @@ GuiAssets :: struct {
 	pause_button_tex:   Texture2D,
 	restart_button_tex: Texture2D,
 	menu_button_tex:    Texture2D,
+	cursor_tex:         Texture2D,
 }
 
 Segment :: struct {
-	a, b: Vector2,
-	aabb: Aabb,
+	a, b:  Vector2,
+	bound: Aabb,
 }
 
 Player :: struct {

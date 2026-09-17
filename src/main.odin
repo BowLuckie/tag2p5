@@ -29,9 +29,13 @@ main :: proc() {
 	}
 
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .WINDOW_TOPMOST, .FULLSCREEN_MODE})
+	rl.SetTraceLogLevel(.WARNING)
 	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "Tag 2.5")
+	rl.SetExitKey(.SLASH)
+	// rl.SetExitKey(.KEY_NULL)
 	rl.SetWindowMinSize(GAME_WIDTH * 0.1, GAME_HEIGHT * 0.1)
 	rl.SetTargetFPS(60)
+	rl.HideCursor()
 
 	append(
 		&renderer.raylib_fonts,
@@ -49,7 +53,7 @@ main :: proc() {
 		raw_data(clay_memory),
 	)
 
-	game := new_game()
+	game: Game = new_game()
 
 	clay.Initialize(clay_arena, {GAME_WIDTH, GAME_HEIGHT}, {handler = _clay_error_handler})
 	clay.SetMeasureTextFunction(renderer.measure_text, &game.font)
@@ -69,7 +73,7 @@ main :: proc() {
 
 		clay.SetPointerState(transmute(clay.Vector2)mouse_pos(), rl.IsMouseButtonDown(.LEFT))
 		clay.UpdateScrollContainers(
-			true,
+			false,
 			transmute(clay.Vector2)rl.GetMouseWheelMoveV() * SCROLL_SPEED,
 			dt,
 		)
@@ -81,8 +85,10 @@ main :: proc() {
 		// clay.SetDebugModeEnabled(true)
 		ui_commands := clay.EndLayout(dt)
 
-		render_game(&game, target, ui_commands)
+		render_game(&game, mouse_pos(), target, ui_commands)
 		draw_screen(target)
+
+		handle_keypresses(&game)
 
 		if game.suicidal {
 			break

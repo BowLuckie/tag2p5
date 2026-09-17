@@ -195,5 +195,5 @@ make_segment :: proc(a, b: rl.Vector2, pad: f32) -> Segment {
 	max_x := max(a.x, b.x) + pad
 	min_y := min(a.y, b.y) - pad
 	max_y := max(a.y, b.y) + pad
-	return Segment{a = a, b = b, aabb = {min_x, min_y, max_x - min_x, max_y - min_y}}
+	return Segment{a = a, b = b, bound = {min_x, min_y, max_x - min_x, max_y - min_y}}
 }
