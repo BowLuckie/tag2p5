@@ -12,15 +12,52 @@ import "core:strings"
 import "renderer"
 import rl "vendor:raylib"
 
+new_game :: proc() -> Game {
+	levels := make([dynamic]Level)
+	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + "arenas")
+	for path in arenas_dir.paths[:arenas_dir.count] {
+		parts := strings.split(string(path), "/")
+		dirname := parts[len(parts) - 1]
+		append(&levels, create_level(dirname))
+		delete(parts)
+	}
+	return create_game(levels[:])
+}
+
+restart_game :: proc(game: ^Game) {
+	free_game(game)
+	game^ = new_game()
+	game.play_state = .Playing
+}
+
+update_game :: proc(game: ^Game, dt: f32) {
+	if game.play_state != .Playing {return}
+	for &player in game.levels[game.lvl_idx].players {
+		update_entity(game, &player, dt)
+	}
+
+	resolve_entity_tagging(game, dt)
+
+	lvl := &game.levels[game.lvl_idx]
+	arena_w := f32(lvl.arena.tilemap.width) * f32(lvl.arena.tilemap.tile_width)
+	arena_h := f32(lvl.arena.tilemap.height) * f32(lvl.arena.tilemap.tile_height)
+	update_camera(&lvl.gc, lvl.players, GAME_WIDTH, GAME_HEIGHT, dt, arena_w, arena_h)
+
+	game.levels[game.lvl_idx].game_time -= dt
+	if game.levels[game.lvl_idx].game_time < 0.8 {
+		game.levels[game.lvl_idx].game_time = 0
+		game.play_state = .GameOver
+	}
+}
+
 update_camera :: proc(
-	gc: ^GameCamera,
+	gc: ^rl.Camera2D,
 	players: []Player,
 	screen_w, screen_h, dt: f32,
 	arena_w, arena_h: f32,
 ) {
 	if len(players) == 0 do return
 
-	// Bounding box of all players, plus padding
 	min_x := players[0].center.x
 	max_x := players[0].center.x
 	min_y := players[0].center.y
@@ -42,49 +79,45 @@ update_camera :: proc(
 	bounds_w := max_x - min_x
 	bounds_h := max_y - min_y
 
-	// Zoom so the whole padded box fits on screen — snap, never lerp
 	zoom_x := screen_w / bounds_w
 	zoom_y := screen_h / bounds_h
-	gc.cam.zoom = clamp(min(zoom_x, zoom_y), 0, MAX_ZOOM)
+	gc.zoom = clamp(min(zoom_x, zoom_y), 0, MAX_ZOOM)
 
-	half_view_w := (screen_w / 2) / gc.cam.zoom
-	half_view_h := (screen_h / 2) / gc.cam.zoom
+	half_view_w := (screen_w / 2) / gc.zoom
+	half_view_h := (screen_h / 2) / gc.zoom
 
-	// Smoothly follow the center of the box
 	desired := Vector2{min_x + bounds_w / 2, min_y + bounds_h / 2}
 	t_pos := clamp(CAM_FOLLOW_SPEED * dt, 0, 1)
-	gc.cam.target = linalg.lerp(gc.cam.target, desired, t_pos)
+	gc.target = linalg.lerp(gc.target, desired, t_pos)
 
-	// Guarantee: every player must be inside the view
 	for player in players {
-		if player.center.x - half_view_w > gc.cam.target.x {
-			gc.cam.target.x = player.center.x - half_view_w
+		if player.center.x - half_view_w > gc.target.x {
+			gc.target.x = player.center.x - half_view_w
 		}
-		if player.center.x + half_view_w < gc.cam.target.x {
-			gc.cam.target.x = player.center.x + half_view_w
+		if player.center.x + half_view_w < gc.target.x {
+			gc.target.x = player.center.x + half_view_w
 		}
-		if player.center.y - half_view_h > gc.cam.target.y {
-			gc.cam.target.y = player.center.y - half_view_h
+		if player.center.y - half_view_h > gc.target.y {
+			gc.target.y = player.center.y - half_view_h
 		}
-		if player.center.y + half_view_h < gc.cam.target.y {
-			gc.cam.target.y = player.center.y + half_view_h
+		if player.center.y + half_view_h < gc.target.y {
+			gc.target.y = player.center.y + half_view_h
 		}
 	}
 
-	// Arena bounds: X within arena, Y only clamp bottom (top free)
 	if arena_w <= 2 * half_view_w {
-		gc.cam.target.x = arena_w / 2
+		gc.target.x = arena_w / 2
 	} else {
-		gc.cam.target.x = clamp(gc.cam.target.x, half_view_w, arena_w - half_view_w)
+		gc.target.x = clamp(gc.target.x, half_view_w, arena_w - half_view_w)
 	}
 
 	if arena_h <= 2 * half_view_h {
-		gc.cam.target.y = arena_h - half_view_h
+		gc.target.y = arena_h - half_view_h
 	} else {
-		gc.cam.target.y = min(gc.cam.target.y, arena_h - half_view_h)
+		gc.target.y = min(gc.target.y, arena_h - half_view_h)
 	}
 
-	gc.cam.offset = {screen_w / 2, screen_h / 2}
+	gc.offset = {screen_w / 2, screen_h / 2}
 }
 
 free_game :: proc(game: ^Game) {
@@ -101,12 +134,10 @@ free_game :: proc(game: ^Game) {
 	}
 
 	delete(game.levels)
+	rl.UnloadRenderTexture(game.target)
 }
 
-make_button :: proc(rect: rl.Rectangle, glyph: Texture2D, on_click: proc(game: ^Game)) -> Button {
-	return Button{rect, glyph, on_click}
-}
-
+@(private = "file")
 create_level :: proc(dirname: string) -> Level {
 	arena_conf_path := fmt.aprintf("%sarenas/%s/%s.txt", ASSET_DIR, dirname, dirname)
 	arena_buf := make([]u8, ARENA_BUF_SIZE)
@@ -196,12 +227,12 @@ create_level :: proc(dirname: string) -> Level {
 	context.allocator = old_alloc
 
 	arena.bg_layers = layers[:]
-	arena.pspawns = pspawns[:]
 	arena.arena_buf = arena_buf
-	arena.arena = a
+	arena.memarena = a
 
-	gc := GameCamera {
-		cam = rl.Camera2D{zoom = 1, offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2}},
+	cam := rl.Camera2D {
+		zoom   = 1,
+		offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2},
 	}
 
 	players := make([]Player, len(pspawns))
@@ -227,7 +258,7 @@ create_level :: proc(dirname: string) -> Level {
 	delete(arena_conf_path)
 
 	return Level {
-		gc = gc,
+		gc = cam,
 		arena = arena,
 		players = players[:],
 		last_tag = 0,
@@ -265,11 +296,13 @@ create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
 		play_state = .MainMenu,
 		levels     = levels,
 		assets     = assets,
+		target     = rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT),
 	}
 
 	return game
 }
 
+@(private = "file")
 get_maps_json :: proc() -> []string {
 	file_list := rl.LoadDirectoryFilesEx(fmt.ctprint(ASSET_DIR), fmt.ctprint(".json"), true)
 	file_slice := file_list.paths[:file_list.count]
@@ -283,45 +316,8 @@ get_maps_json :: proc() -> []string {
 	return out[:]
 }
 
-new_game :: proc() -> Game {
-	levels := make([dynamic]Level)
-	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + "arenas")
-	for path in arenas_dir.paths[:arenas_dir.count] {
-		parts := strings.split(string(path), "/")
-		dirname := parts[len(parts) - 1]
-		append(&levels, create_level(dirname))
-		delete(parts)
-	}
-	return create_game(levels[:])
-}
 
-restart_game :: proc(game: ^Game) {
-	free_game(game)
-	game^ = new_game()
-	game.play_state = .Playing
-}
-
-update_game :: proc(game: ^Game, dt: f32) {
-	if game.play_state != .Playing {return}
-	for &player in game.levels[game.lvl_idx].players {
-		update_entity(game, &player, dt)
-	}
-
-	resolve_entity_tagging(game, dt)
-
-	lvl := &game.levels[game.lvl_idx]
-	arena_w := f32(lvl.arena.tilemap.width) * f32(lvl.arena.tilemap.tile_width)
-	arena_h := f32(lvl.arena.tilemap.height) * f32(lvl.arena.tilemap.tile_height)
-	update_camera(&lvl.gc, lvl.players, GAME_WIDTH, GAME_HEIGHT, dt, arena_w, arena_h)
-
-	game.levels[game.lvl_idx].game_time -= dt
-	if game.levels[game.lvl_idx].game_time < 0.8 {
-		game.levels[game.lvl_idx].game_time = 0
-		game.play_state = .GameOver
-	}
-}
-
-
+@(private = "file")
 draw_entity :: proc(e: Player) {
 	sign: f32 = math.sign(e.orientation + 0.002)
 	// this is to make sure sign isnt 0, becuase
@@ -341,6 +337,7 @@ draw_entity :: proc(e: Player) {
 	}
 }
 
+@(private = "file")
 draw_triangle :: proc(e: Player) {
 	rl.DrawTexture(
 		e.triangle_tex,
@@ -350,6 +347,7 @@ draw_triangle :: proc(e: Player) {
 	)
 }
 
+@(private = "file")
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
 		rl.DrawLineEx(seg.a, seg.b, 1, rl.BLACK)
@@ -370,7 +368,7 @@ render_game :: proc(
 		rl.ClearBackground(SKY_COLOR)
 		draw_parallax_layers(game^)
 
-		rl.BeginMode2D(game.levels[game.lvl_idx].gc.cam)
+		rl.BeginMode2D(game.levels[game.lvl_idx].gc)
 		// draw_segs(game.segments)
 		draw_tilemap(game.levels[game.lvl_idx].arena.tilemap)
 
@@ -390,6 +388,7 @@ render_game :: proc(
 	rl.DrawTexture(game.assets.cursor_tex, i32(mpos.x), i32(mpos.y), rl.WHITE)
 }
 
+@(private = "file")
 draw_parallax_layers :: proc(game: Game) {
 	for layer in game.levels[game.lvl_idx].arena.bg_layers {
 		tex_w := f32(layer.tex.width)
@@ -401,7 +400,7 @@ draw_parallax_layers :: proc(game: Game) {
 
 		lcam := rl.Camera2D {
 			offset = {f32(GAME_WIDTH) / 2, f32(GAME_HEIGHT) / 2},
-			target = {game.levels[game.lvl_idx].gc.cam.target.x * layer.factor, 0},
+			target = {game.levels[game.lvl_idx].gc.target.x * layer.factor, 0},
 			zoom   = 1,
 		}
 		rl.BeginMode2D(lcam)
@@ -437,7 +436,9 @@ draw_text :: proc(
 	rl.DrawText(text, PosX - text_width / 2, PosY - i32(font_size) / 2, i32(font_size), color)
 }
 
-build_ui :: proc(game: ^Game) {
+build_ui :: proc(game: ^Game, dt: f32) -> clay.ClayArray(clay.RenderCommand) {
+	clay.BeginLayout()
+	// clay.SetDebugModeEnabled(true)
 	switch game.play_state {
 	case .MainMenu:
 		ui_main_menu(game)
@@ -452,8 +453,12 @@ build_ui :: proc(game: ^Game) {
 		ui_hud(game)
 		ui_game_over(game)
 	}
+
+	return clay.EndLayout(dt)
+
 }
 
+@(private = "file")
 ui_main_menu :: proc(game: ^Game) {
 	if UI(ID("menu_root"))(
 	clay.ElementDeclaration {
@@ -522,6 +527,7 @@ ui_main_menu :: proc(game: ^Game) {
 	}
 }
 
+@(private = "file")
 ui_map_select :: proc(game: ^Game) {
 	if UI(ID("mapselect_root"))(
 	clay.ElementDeclaration {
@@ -637,6 +643,7 @@ ui_map_select :: proc(game: ^Game) {
 	}
 }
 
+@(private = "file")
 ui_hud :: proc(game: ^Game) {
 	if UI(ID("hud_root"))(
 	clay.ElementDeclaration {
@@ -683,6 +690,7 @@ ui_hud :: proc(game: ^Game) {
 	}
 }
 
+@(private = "file")
 ui_pause_menu :: proc(game: ^Game) {
 	if UI(ID("pause_overlay"))(
 	clay.ElementDeclaration {
@@ -741,6 +749,7 @@ ui_pause_menu :: proc(game: ^Game) {
 	}
 }
 
+@(private = "file")
 ui_game_over :: proc(game: ^Game) {
 	if UI(ID("gameover_overlay"))(
 	clay.ElementDeclaration {
@@ -845,5 +854,47 @@ animation_rect :: proc(animation_obj: AnimationObj) -> rl.Rectangle {
 		f32(animation_obj.frame / animation_obj.columns) * animation_obj.tile_h,
 		f32(animation_obj.tile_w),
 		f32(animation_obj.tile_h),
+	}
+}
+
+handle_keypresses :: proc(game: ^Game) {
+	if rl.IsKeyPressed(.ESCAPE) {
+		on_esc(game)
+	} else if rl.IsKeyPressed(.ENTER) {
+		on_enter(game)
+	}
+}
+
+@(private = "file")
+on_esc :: proc(game: ^Game) {
+	switch game.play_state {
+	case .MainMenu:
+		game.suicidal = true
+
+	case .MapSel:
+		game.play_state = .MainMenu
+
+	case .Playing:
+		game.play_state = .Paused
+
+	case .Paused, .GameOver:
+		game.play_state = .MainMenu
+	}
+}
+
+@(private = "file")
+on_enter :: proc(game: ^Game) {
+	#partial switch game.play_state {
+	case .MainMenu:
+		game.play_state = .MapSel
+
+	case .Paused:
+		game.play_state = .Playing
+
+	case .GameOver:
+		restart_game(game)
+
+	case:
+		break
 	}
 }

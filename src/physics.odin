@@ -31,6 +31,7 @@ ai_callback :: proc(self: ^Player, game: ^Game) -> (dir: f32, jump: bool) {
 	return dir, jump
 }
 
+@(private = "file")
 project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
 	ab := b - a
 	t := linalg.dot(p - a, ab) / linalg.dot(ab, ab)
@@ -38,6 +39,7 @@ project :: #force_inline proc "contextless" (p, a, b: Vector2) -> Vector2 {
 	return a + ab * t
 }
 
+@(private = "file")
 resolve_circ_seg :: proc "contextless" (e: ^Player, seg: Segment) -> (hit: bool, normal: Vector2) {
 	if !rl.CheckCollisionCircleRec(e.center, e.radius, seg.bound) {
 		return false, {}
@@ -132,18 +134,22 @@ update_entity :: proc(game: ^Game, e: ^Player, dt: f32) {
 	}
 }
 
+@(private = "file")
 aabb :: proc "contextless" (a, b: Aabb) -> bool {
 	return rl.CheckCollisionRecs(a, b)
 }
 
+@(private = "file")
 aabb_pt :: proc "contextless" (p: rl.Vector2, r: Aabb) -> bool {
 	return rl.CheckCollisionPointRec(p, r)
 }
 
+@(private = "file")
 aabb_circ :: proc "contextless" (center: rl.Vector2, radius: f32, r: Aabb) -> bool {
 	return rl.CheckCollisionCircleRec(center, radius, r)
 }
 
+@(private = "file")
 entity_tagging :: proc(e1, e2: ^Player) -> bool {
 	diff := e1.center - e2.center
 	dist := linalg.length(diff)
@@ -168,6 +174,7 @@ resolve_entity_tagging :: proc(game: ^Game, dt: f32) {
 	}
 }
 
+@(private = "file")
 resolve_tag :: proc(e1, e2: ^Player, game: ^Game) {
 	game.levels[game.lvl_idx].last_tag = TAG_IMMUNITY
 	e1.tagged, e2.tagged = e2.tagged, e1.tagged

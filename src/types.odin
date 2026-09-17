@@ -11,29 +11,74 @@ Aabb :: rl.Rectangle
 ID :: clay.ID
 UI :: clay.UI
 
+GameMode :: enum {
+	Normal,
+}
+
+GameState :: enum {
+	MainMenu,
+	MapSel,
+	Playing,
+	Paused,
+	GameOver,
+}
+
 Fonts :: enum {
 	TheOneFont = 0, // there is a good chance this stays like this forever
 }
 
+Segment :: struct {
+	a, b:  Vector2,
+	bound: Aabb,
+}
+
 Game :: struct {
+	// currently this always sits at `.Normal` maybe one day i will add more gamemodes
 	mode:        GameMode,
+
+	// the current screen that is focused, eg `.Paused` `.MainMenu`
 	play_state:  GameState,
 	clay_memory: []u8,
 	assets:      GuiAssets,
 	font:        [Fonts]rl.Font,
+
+	// should the game close its self at the end of this frame
 	suicidal:    bool,
+
+	// a list of all the levels discovered by `create_game()`
 	levels:      []Level,
+
+	// an index into `levels` that points to the level that is being played
 	lvl_idx:     int,
+
+	// the texture the game is drawn to
+	target:      rl.RenderTexture2D,
 }
 
 Level :: struct {
-	gc:        GameCamera,
+	// the game camera. objects are places in absolute positions and the camera does
+	// the rest of the work
+	gc:        rl.Camera2D,
+	// information about the way this level looks and its collision
 	arena:     Arena,
+	// players are arena specifc, becuase they might have diffrent spawns
 	players:   []Player,
+	// counts down from `TAG_IMMUNITY` to 0
 	last_tag:  f32,
+	// counts down from `GAME_TIME` to 0
 	game_time: f32,
 	thumb:     Texture2D,
 	title:     string,
+}
+
+Arena :: struct {
+	// contains information about the Tiled json
+	tilemap:   Tilemap,
+	// rendered in LIFO order
+	bg_layers: []ParallaxLayer,
+	segments:  []Segment,
+	arena_buf: []u8,
+	memarena:  mem.Arena,
 }
 
 GuiAssets :: struct {
@@ -45,23 +90,23 @@ GuiAssets :: struct {
 	cursor_tex:         Texture2D,
 }
 
-Segment :: struct {
-	a, b:  Vector2,
-	bound: Aabb,
-}
 
 Player :: struct {
 	center:       Vector2,
 	vel:          Vector2,
 	radius:       f32,
 	grounded:     bool,
+	// counts down from `COYOTE_TIME` to 0
 	coyote_time:  f32,
+	// tagging info is stored in the players, not the game
 	tagged:       bool,
 	animation:    AnimationObj,
 	tex:          Texture2D,
 	triangle_tex: Texture2D,
 	rotation:     f32,
+	// the unique id of this player, used to determine sprite and movement
 	pid:          uint,
+	// orientation is now persistant
 	orientation:  f32,
 }
 
@@ -78,53 +123,13 @@ AnimationObj :: struct {
 	src_rect:       rl.Rectangle,
 }
 
-GameCamera :: struct {
-	cam: rl.Camera2D,
-}
-
-GameMode :: enum {
-	Normal,
-}
-
-GameState :: enum {
-	MainMenu,
-	MapSel,
-	Playing,
-	Paused,
-	GameOver,
-}
-
-Arena :: struct {
-	tilemap:   Tilemap,
-	bg_layers: []ParallaxLayer,
-	segments:  []Segment,
-	pspawns:   []Vector2,
-	arena_buf: []u8,
-	arena:     mem.Arena,
-}
-
-ArenaConfig :: struct {}
 
 ParallaxLayer :: struct {
 	tex:    Texture2D,
 	factor: f32,
 }
 
-Button :: struct {
-	rect:     rl.Rectangle,
-	glyph:    Texture2D,
-	on_click: proc(game: ^Game),
-}
-
-PlayerConfig :: struct {
-	radius:            f32,
-	animation:         AnimationObj,
-	tex:               Texture2D,
-	triangle_tex:      Texture2D,
-	pid:               uint,
-	movement_callback: proc() -> (dir: f32, jump: bool),
-}
-
+// the struct that the json get marsheled into
 TiledMap :: struct {
 	width:      int,
 	height:     int,
@@ -179,17 +184,4 @@ Tilemap :: struct {
 	first_gid:     int,
 	columns:       int,
 	collide_data:  map[u32][]f64,
-}
-
-Label :: struct {
-	text:       cstring,
-	font_size:  uint,
-	posx, posy: i32,
-	color:      rl.Color,
-}
-
-Scene :: struct {
-	scene:   GameState,
-	buttons: []Button,
-	labels:  []Label,
 }

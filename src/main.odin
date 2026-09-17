@@ -45,50 +45,28 @@ main :: proc() {
 		},
 	)
 
-	min_memory_size := clay.MinMemorySize()
-	clay_memory := make([]u8, min_memory_size)
-
-	clay_arena := clay.CreateArenaWithCapacityAndMemory(
-		uint(min_memory_size),
-		raw_data(clay_memory),
-	)
-
+	clay_arena := create_clay_arena()
 	game: Game = new_game()
-
-	clay.Initialize(clay_arena, {GAME_WIDTH, GAME_HEIGHT}, {handler = _clay_error_handler})
-	clay.SetMeasureTextFunction(renderer.measure_text, &game.font)
-
-	target := rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT)
 
 	defer {
 		free_game(&game)
-		rl.UnloadRenderTexture(target)
 		rl.CloseWindow()
-		delete(clay_memory)
+		delete(clay_arena.memory[:clay_arena.capacity])
 		delete(renderer.raylib_fonts)
 	}
 
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 
-		clay.SetPointerState(transmute(clay.Vector2)mouse_pos(), rl.IsMouseButtonDown(.LEFT))
-		clay.UpdateScrollContainers(
-			false,
-			transmute(clay.Vector2)rl.GetMouseWheelMoveV() * SCROLL_SPEED,
-			dt,
-		)
-
+		// update
+		update_clay(dt)
 		update_game(&game, dt)
-
-		clay.BeginLayout()
-		build_ui(&game)
-		// clay.SetDebugModeEnabled(true)
-		ui_commands := clay.EndLayout(dt)
-
-		render_game(&game, mouse_pos(), target, ui_commands)
-		draw_screen(target)
-
 		handle_keypresses(&game)
+
+		// render
+		ui_commands := build_ui(&game, dt)
+		render_game(&game, mouse_pos(), game.target, ui_commands)
+		draw_screen(game.target)
 
 		if game.suicidal {
 			break

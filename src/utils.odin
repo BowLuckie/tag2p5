@@ -5,6 +5,7 @@ import clay "clay-odin"
 import "core:fmt"
 import "core:mem"
 import "core:os"
+import "renderer"
 import rl "vendor:raylib"
 
 log_debug :: proc(args: ..any, sep := " ", flush := true) -> int {
@@ -62,10 +63,26 @@ squash_pairs :: proc(upaired: []f64, allocator: mem.Allocator) -> []Vector2 {
 	return result
 }
 
-bool_dir :: proc(b: bool) -> f32 {
-	if b {
-		return -1
-	}
+update_clay :: proc(dt: f32) {
+	clay.SetPointerState(transmute(clay.Vector2)mouse_pos(), rl.IsMouseButtonDown(.LEFT))
+	clay.UpdateScrollContainers(
+		false,
+		transmute(clay.Vector2)rl.GetMouseWheelMoveV() * SCROLL_SPEED,
+		dt,
+	)
+}
 
-	return 1
+create_clay_arena :: proc() -> clay.Arena {
+	min_memory_size := clay.MinMemorySize()
+	clay_memory := make([]u8, min_memory_size)
+
+	clay_arena := clay.CreateArenaWithCapacityAndMemory(
+		uint(min_memory_size),
+		raw_data(clay_memory),
+	)
+
+	clay.Initialize(clay_arena, {GAME_WIDTH, GAME_HEIGHT}, {handler = _clay_error_handler})
+	clay.SetMeasureTextFunction(renderer.measure_text, nil)
+
+	return clay_arena
 }

@@ -63,6 +63,7 @@ load_tilemap :: proc(
 	return tilemap, nil
 }
 
+@(private = "file")
 get_gid_and_flags :: proc(raw: u32) -> (gid: u32, flip_h, flip_v, flip_d: bool) {
 	flip_h = (raw & FLIPPED_HORIZONTALLY) != 0
 	flip_v = (raw & FLIPPED_VERTICALLY) != 0
@@ -96,6 +97,7 @@ generate_segments :: proc(tilemap: Tilemap, allocator: mem.Allocator) -> []Segme
 	return segments[:]
 }
 
+@(private = "file")
 segs_from_cdat :: proc(
 	gid: u32,
 	h, v, d: bool,
@@ -143,7 +145,6 @@ segs_from_cdat :: proc(
 	return segments[:]
 }
 
-
 draw_tilemap :: proc(tilemap: Tilemap) {
 	for y := 0; y < tilemap.height; y += 1 {
 		for x := 0; x < tilemap.width; x += 1 {
@@ -157,6 +158,7 @@ draw_tilemap :: proc(tilemap: Tilemap) {
 	}
 }
 
+@(private = "file")
 draw_tile :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) {
 	if gid == 0 {return}
 	src := get_src_rect(tilemap, gid)
@@ -177,6 +179,7 @@ draw_tile :: proc(gid: u32, h, v, d: bool, top_left: Vector2, tilemap: Tilemap) 
 	rl.DrawTexturePro(tilemap.tileset_tex, src, dest, {0, 0}, 0, rl.WHITE)
 }
 
+@(private = "file")
 get_src_rect :: proc(tmap: Tilemap, gid: u32) -> rl.Rectangle {
 	local_id := int(gid) - tmap.first_gid
 	if local_id < 0 {return {}}
@@ -190,6 +193,7 @@ get_src_rect :: proc(tmap: Tilemap, gid: u32) -> rl.Rectangle {
 	}
 }
 
+@(private = "file")
 make_segment :: proc(a, b: rl.Vector2, pad: f32) -> Segment {
 	min_x := min(a.x, b.x) - pad
 	max_x := max(a.x, b.x) + pad
