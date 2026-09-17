@@ -67,8 +67,6 @@ Recommended tile size is 16×16, matching `PLAYER_RAD`.
 - **Clay** — retained-mode UI (menus, HUD, map select) with a Raylib renderer
 - **Tiled** — map editor; the JSON parser reads embedded tilesets and per-tile collision data directly
 
-## Acknowledgements
-
 Thanks to [Nic Barker](https://github.com/nicbarker) for [Clay](https://github.com/nicbarker/clay), it made the UI layer a pleasure to build
 
 ## License
