@@ -5,6 +5,7 @@ import clay "clay-odin"
 import "core:fmt"
 import "core:mem"
 import "core:os"
+import "core:slice"
 import "renderer"
 import rl "vendor:raylib"
 
@@ -85,4 +86,62 @@ create_clay_arena :: proc() -> clay.Arena {
 	clay.SetMeasureTextFunction(renderer.measure_text, nil)
 
 	return clay_arena
+}
+
+init_raylib :: proc() {
+	rl.SetConfigFlags({.WINDOW_RESIZABLE, .WINDOW_TOPMOST, .FULLSCREEN_MODE})
+	rl.SetTraceLogLevel(.WARNING)
+	rl.InitWindow(GAME_WIDTH, GAME_HEIGHT, "Tag 2.5")
+	rl.SetExitKey(.SLASH)
+	// rl.SetExitKey(.KEY_NULL)
+	rl.SetWindowMinSize(GAME_WIDTH * 0.1, GAME_HEIGHT * 0.1)
+	rl.SetTargetFPS(60)
+	rl.HideCursor()
+	append(
+		&renderer.raylib_fonts,
+		renderer.Raylib_Font {
+			fontId = u16(Fonts.TheOneFont),
+			font = rl.LoadFontEx("./assets/PeaberryBase.ttf", 96, nil, 0),
+		},
+	)
+}
+
+@(deferred_out = tracking_allocator_report)
+tracking_allocator_start :: proc(ctx: ^runtime.Context) -> ^mem.Tracking_Allocator {
+	track := new(mem.Tracking_Allocator, ctx.allocator)
+	mem.tracking_allocator_init(track, ctx.allocator)
+	ctx.allocator = mem.tracking_allocator(track)
+	return track
+}
+
+tracking_allocator_report :: proc(track: ^mem.Tracking_Allocator) {
+	defer mem.tracking_allocator_destroy(track)
+
+	if len(track.bad_free_array) > 0 {
+		fmt.printf("tracking allocator: %d bad free(s):\n", len(track.bad_free_array))
+		for bad in track.bad_free_array {
+			fmt.printf("  bad free at %v (memory: %p)\n", bad.location, bad.memory)
+		}
+	}
+
+	if len(track.allocation_map) == 0 {
+		fmt.println("tracking allocator: no leaks")
+	} else {
+		fmt.printf("tracking allocator: %d live allocation(s):\n", len(track.allocation_map))
+
+		entries := make([dynamic]mem.Tracking_Allocator_Entry, 0, len(track.allocation_map))
+		defer delete(entries)
+		for _, leak in track.allocation_map {
+			append(&entries, leak)
+		}
+		slice.sort_by(entries[:], proc(a, b: mem.Tracking_Allocator_Entry) -> bool {
+			return a.location.file_path < b.location.file_path
+		})
+
+		for leak in entries {
+			fmt.printf("  %v leaked %m\n", leak.location, leak.size)
+		}
+	}
+
+	free(track, track.backing)
 }
