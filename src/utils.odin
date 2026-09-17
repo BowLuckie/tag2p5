@@ -118,16 +118,16 @@ tracking_allocator_report :: proc(track: ^mem.Tracking_Allocator) {
 	defer mem.tracking_allocator_destroy(track)
 
 	if len(track.bad_free_array) > 0 {
-		fmt.printf("tracking allocator: %d bad free(s):\n", len(track.bad_free_array))
+		log_debug("tracking allocator: %d bad free(s):\n", len(track.bad_free_array))
 		for bad in track.bad_free_array {
-			fmt.printf("  bad free at %v (memory: %p)\n", bad.location, bad.memory)
+			log_debug("  bad free at %v (memory: %p)\n", bad.location, bad.memory)
 		}
 	}
 
 	if len(track.allocation_map) == 0 {
-		fmt.println("tracking allocator: no leaks")
+		log_debug("tracking allocator: no leaks")
 	} else {
-		fmt.printf("tracking allocator: %d live allocation(s):\n", len(track.allocation_map))
+		log_debug("tracking allocator: %d live allocation(s):\n", len(track.allocation_map))
 
 		entries := make([dynamic]mem.Tracking_Allocator_Entry, 0, len(track.allocation_map))
 		defer delete(entries)
@@ -139,7 +139,7 @@ tracking_allocator_report :: proc(track: ^mem.Tracking_Allocator) {
 		})
 
 		for leak in entries {
-			fmt.printf("  %v leaked %m\n", leak.location, leak.size)
+			log_debug("  %v leaked %m\n", leak.location, leak.size)
 		}
 	}
 

@@ -13,7 +13,7 @@ main :: proc() {
 	init_raylib()
 
 	clay_arena := create_clay_arena()
-	game: Game = new_game()
+	game: Game = new_game(0)
 
 	defer {
 		free_game(&game)
@@ -23,6 +23,13 @@ main :: proc() {
 	}
 
 	for !rl.WindowShouldClose() {
+		if game.pending_restart_idx >= 0 {
+			idx := game.pending_restart_idx
+			restart_game(&game, idx)
+			game.play_state = .Playing
+			game.pending_restart_idx = -1
+		}
+
 		dt := rl.GetFrameTime()
 
 		// update

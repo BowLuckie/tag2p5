@@ -12,7 +12,7 @@ import "core:strings"
 import "renderer"
 import rl "vendor:raylib"
 
-new_game :: proc() -> Game {
+new_game :: proc(lvl_idx: int) -> Game {
 	levels := make([dynamic]Level)
 	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + "arenas")
 	for path in arenas_dir.paths[:arenas_dir.count] {
@@ -21,12 +21,13 @@ new_game :: proc() -> Game {
 		append(&levels, create_level(dirname))
 		delete(parts)
 	}
-	return create_game(levels[:])
+	return create_game(levels[:], lvl_idx)
 }
 
-restart_game :: proc(game: ^Game) {
+restart_game :: proc(game: ^Game, idx: int) {
+	lvl_idx := idx
 	free_game(game)
-	game^ = new_game()
+	game^ = new_game(lvl_idx)
 	game.play_state = .Playing
 }
 
@@ -105,17 +106,17 @@ update_camera :: proc(
 		}
 	}
 
+	// Side walls: hard bound on both edges.
 	if arena_w <= 2 * half_view_w {
 		gc.target.x = arena_w / 2
 	} else {
 		gc.target.x = clamp(gc.target.x, half_view_w, arena_w - half_view_w)
 	}
 
-	if arena_h <= 2 * half_view_h {
-		gc.target.y = arena_h - half_view_h
-	} else {
-		gc.target.y = min(gc.target.y, arena_h - half_view_h)
-	}
+	// Floor: hard bound on the bottom only. No lower clamp on target.y,
+	// so the camera is free to pan above the arena top when needed to
+	// keep a player in view.
+	gc.target.y = min(gc.target.y, arena_h - half_view_h)
 
 	gc.offset = {screen_w / 2, screen_h / 2}
 }
@@ -276,12 +277,12 @@ free_arena :: proc(arena: ^Arena) {
 	delete(arena.arena_buf)
 }
 
-create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
+create_game :: proc(levels: []Level, lvl_idx: int, game_time: f32 = GAME_TIME) -> Game {
 	restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
 	play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
 	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
 	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
-	cursor_tex := rl.LoadTexture(ASSET_DIR + "player_1.png")
+	cursor_tex := rl.LoadTexture(ASSET_DIR + "cursor.png")
 
 	assets := GuiAssets {
 		play_button_tex    = play_tex,
@@ -293,10 +294,12 @@ create_game :: proc(levels: []Level, game_time: f32 = GAME_TIME) -> Game {
 	}
 
 	game := Game {
-		play_state = .MainMenu,
-		levels     = levels,
-		assets     = assets,
-		target     = rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT),
+		play_state          = .MainMenu,
+		levels              = levels,
+		assets              = assets,
+		target              = rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT),
+		lvl_idx             = lvl_idx,
+		pending_restart_idx = -1,
 	}
 
 	return game
@@ -385,7 +388,14 @@ render_game :: proc(
 	commands := ui_commands
 	renderer.clay_raylib_render(&commands)
 
-	rl.DrawTexture(game.assets.cursor_tex, i32(mpos.x), i32(mpos.y), rl.WHITE)
+	rl.DrawTexturePro(
+		game.assets.cursor_tex,
+		{0, 0, f32(game.assets.cursor_tex.width), f32(game.assets.cursor_tex.height)},
+		{mpos.x, mpos.y, 64, 64},
+		{0, 0},
+		0,
+		rl.WHITE,
+	)
 }
 
 @(private = "file")
@@ -455,7 +465,6 @@ build_ui :: proc(game: ^Game, dt: f32) -> clay.ClayArray(clay.RenderCommand) {
 	}
 
 	return clay.EndLayout(dt)
-
 }
 
 @(private = "file")
@@ -592,8 +601,6 @@ ui_map_select :: proc(game: ^Game) {
 			},
 			) {
 				for item, i in game.levels {
-					hovered := clay.Hovered()
-
 					if UI(clay.ID("MapCard", u32(i)))(
 					clay.ElementDeclaration {
 						layout = clay.LayoutConfig {
@@ -606,13 +613,16 @@ ui_map_select :: proc(game: ^Game) {
 							padding = clay.Padding{top = 36, bottom = 36, left = 36, right = 36},
 							childGap = 28,
 						},
-						backgroundColor = hovered ? clay.Color{80, 80, 100, 255} : clay.Color{45, 45, 58, 255},
+						backgroundColor = clay.Hovered() ? clay.Color{80, 80, 100, 255} : clay.Color{45, 45, 58, 255},
 						cornerRadius = clay.CornerRadius{12, 12, 12, 12},
 					},
 					) {
 						if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
-							game.lvl_idx = i
-							game.play_state = .Playing
+							// restart_game(game)
+							// game.lvl_idx = i
+							// game.play_state = .Playing
+							game.pending_restart_idx = i
+							// fmt.println(i)
 						}
 
 						if UI(clay.ID("MapThumb", u32(i)))(
@@ -629,7 +639,7 @@ ui_map_select :: proc(game: ^Game) {
 						) {}
 
 						clay.Text(
-							fmt.tprintf("%s", game.levels[i].title),
+							game.levels[i].title,
 							clay.TextElementConfig {
 								fontId = 0,
 								fontSize = 40,
@@ -739,7 +749,7 @@ ui_pause_menu :: proc(game: ^Game) {
 				260 * 1.5,
 				60 * 1.5,
 			) {
-				restart_game(game)
+				restart_game(game, game.lvl_idx)
 			}
 
 			if image_button(ID("quit_button"), &game.assets.quit_button_tex, 260 * 1.5, 60 * 1.5) {
@@ -789,7 +799,7 @@ ui_game_over :: proc(game: ^Game) {
 				260 * 1.5,
 				60 * 1.5,
 			) {
-				restart_game(game)
+				restart_game(game, game.lvl_idx)
 			}
 
 			if image_button(
@@ -892,7 +902,7 @@ on_enter :: proc(game: ^Game) {
 		game.play_state = .Playing
 
 	case .GameOver:
-		restart_game(game)
+		restart_game(game, game.lvl_idx)
 
 	case:
 		break

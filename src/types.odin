@@ -34,25 +34,28 @@ Segment :: struct {
 
 Game :: struct {
 	// currently this always sits at `.Normal` maybe one day i will add more gamemodes
-	mode:        GameMode,
+	mode:                GameMode,
 
 	// the current screen that is focused, eg `.Paused` `.MainMenu`
-	play_state:  GameState,
-	clay_memory: []u8,
-	assets:      GuiAssets,
-	font:        [Fonts]rl.Font,
+	play_state:          GameState,
+	clay_memory:         []u8,
+	assets:              GuiAssets,
+	font:                [Fonts]rl.Font,
 
 	// should the game close its self at the end of this frame
-	suicidal:    bool,
+	suicidal:            bool,
+
+	// similarly to `suicidal` this indacates what `level_idx` to restart to at the end of this frame
+	pending_restart_idx: int,
 
 	// a list of all the levels discovered by `create_game()`
-	levels:      []Level,
+	levels:              []Level,
 
 	// an index into `levels` that points to the level that is being played
-	lvl_idx:     int,
+	lvl_idx:             int,
 
 	// the texture the game is drawn to
-	target:      rl.RenderTexture2D,
+	target:              rl.RenderTexture2D,
 }
 
 Level :: struct {
