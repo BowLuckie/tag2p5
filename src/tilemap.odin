@@ -94,7 +94,7 @@ generate_segments :: proc(tilemap: Tilemap, allocator: mem.Allocator) -> []Segme
 		}
 	}
 
-	return segments[:]
+	return merge_segments(tilemap, segments[:])
 }
 
 @(private = "file")
@@ -200,4 +200,55 @@ make_segment :: proc(a, b: rl.Vector2, pad: f32) -> Segment {
 	min_y := min(a.y, b.y) - pad
 	max_y := max(a.y, b.y) + pad
 	return Segment{a = a, b = b, bound = {min_x, min_y, max_x - min_x, max_y - min_y}}
+}
+
+DiagDir :: enum {
+	TopLeft,
+	TopRight,
+	None,
+}
+
+@(private = "file")
+merge_segments :: proc(tmap: Tilemap, segments: []Segment) -> []Segment {
+	visited := make([]bool, tmap.width * tmap.height, context.temp_allocator)
+
+	for row in 0 ..< tmap.height {
+		for col in 0 ..< tmap.width {
+			idx := row * tmap.width + col
+			if visited[idx] do continue
+
+			raw := tmap.tiles[idx]
+			gid, h, v, d := get_gid_and_flags(raw)
+			tsid := int(gid) - tmap.first_gid
+			if tsid < 0 do continue
+
+			ddir := get_diag_dir(tsid)
+			if ddir == .None do continue
+
+			start_col, start_row := col, row
+			cur_col, cur_row := col, row
+
+			step_col := 1
+			step_row := ddir == .TopRight ? -1 : 1
+
+			for {
+				visited[cur_row * tmap.width + cur_col] = true
+				// TODO:
+			}
+		}
+	}
+
+	return {}
+}
+
+@(private = "file")
+get_diag_dir :: proc(tsid: int) -> DiagDir {
+	switch tsid {
+	case 5:
+		return .TopRight
+	case 6:
+		return .TopLeft
+	case:
+		return .None
+	}
 }
