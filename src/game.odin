@@ -353,7 +353,13 @@ draw_triangle :: proc(e: Player) {
 @(private = "file")
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
-		rl.DrawLineEx(seg.a, seg.b, 1, rl.BLACK)
+		randomColor := rl.Color {
+			u8(rl.GetRandomValue(0, 255)),
+			u8(rl.GetRandomValue(0, 255)),
+			u8(rl.GetRandomValue(0, 255)),
+			255,
+		}
+		rl.DrawLineEx(seg.a, seg.b, 1, randomColor)
 	}
 }
 
@@ -372,7 +378,7 @@ render_game :: proc(
 		draw_parallax_layers(game^)
 
 		rl.BeginMode2D(game.levels[game.lvl_idx].gc)
-		// draw_segs(game.segments)
+		// draw_segs(game.levels[game.lvl_idx].arena.segments)
 		draw_tilemap(game.levels[game.lvl_idx].arena.tilemap)
 
 		for &player in game.levels[game.lvl_idx].players {

@@ -2,6 +2,7 @@ package tag2p5
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:math/linalg"
 import "core:mem"
 import "core:os"
 import rl "vendor:raylib"
@@ -210,45 +211,77 @@ DiagDir :: enum {
 
 @(private = "file")
 merge_segments :: proc(tmap: Tilemap, segments: []Segment) -> []Segment {
-	visited := make([]bool, tmap.width * tmap.height, context.temp_allocator)
-
-	for row in 0 ..< tmap.height {
-		for col in 0 ..< tmap.width {
-			idx := row * tmap.width + col
-			if visited[idx] do continue
-
-			raw := tmap.tiles[idx]
-			gid, h, v, d := get_gid_and_flags(raw)
-			tsid := int(gid) - tmap.first_gid
-			if tsid < 0 do continue
-
-			ddir := get_diag_dir(tsid)
-			if ddir == .None do continue
-
-			start_col, start_row := col, row
-			cur_col, cur_row := col, row
-
-			step_col := 1
-			step_row := ddir == .TopRight ? -1 : 1
-
-			for {
-				visited[cur_row * tmap.width + cur_col] = true
-				// TODO:
-			}
-		}
+	endpoint_map := make(map[Vector2][dynamic]int)
+	defer {
+		for _, v in endpoint_map do delete(v)
+		delete(endpoint_map)
 	}
 
-	return {}
+	for seg, i in segments {
+		key_a := endpoint_map[seg.a]
+		append(&key_a, i)
+		endpoint_map[seg.a] = key_a
+
+		key_b := endpoint_map[seg.b]
+		append(&key_b, i)
+		endpoint_map[seg.b] = key_b
+	}
+
+	visited := make([]bool, len(segments))
+	defer delete(visited)
+
+	merged := make([dynamic]Segment)
+
+	for i in 0 ..< len(segments) {
+		if visited[i] do continue
+		visited[i] = true
+
+		start := segments[i].a
+		end := segments[i].b
+		dir := linalg.normalize(end - start)
+
+		extend_fwd: for {
+			for idx in endpoint_map[end] {
+				if visited[idx] do continue
+				other, ok := find_other_end(segments[idx], end)
+				if !ok do continue
+				if !same_dir(dir, linalg.normalize(other - end)) do continue
+
+				visited[idx] = true
+				end = other
+				continue extend_fwd
+			}
+			break
+		}
+
+		extend_bwd: for {
+			for idx in endpoint_map[start] {
+				if visited[idx] do continue
+				other, ok := find_other_end(segments[idx], start)
+				if !ok do continue
+				if !same_dir(dir, linalg.normalize(start - other)) do continue
+
+				visited[idx] = true
+				start = other
+				continue extend_bwd
+			}
+			break
+		}
+
+		append(&merged, make_segment(start, end, PAD))
+	}
+
+	return merged[:]
 }
 
 @(private = "file")
-get_diag_dir :: proc(tsid: int) -> DiagDir {
-	switch tsid {
-	case 5:
-		return .TopRight
-	case 6:
-		return .TopLeft
-	case:
-		return .None
-	}
+same_dir :: proc(a, b: Vector2) -> bool {
+	return linalg.dot(linalg.normalize(a), linalg.normalize(b)) > 0.999
+}
+
+@(private = "file")
+find_other_end :: proc(seg: Segment, known_end: Vector2) -> (other: Vector2, ok: bool) {
+	if seg.a == known_end do return seg.b, true
+	if seg.b == known_end do return seg.a, true
+	return {}, false
 }
