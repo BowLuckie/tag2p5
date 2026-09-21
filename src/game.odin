@@ -15,6 +15,7 @@ import rl "vendor:raylib"
 new_game :: proc(lvl_idx: int = 0) -> Game {
 	levels := make([dynamic]Level)
 	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + "arenas")
+
 	for path in arenas_dir.paths[:arenas_dir.count] {
 		parts := strings.split(string(path), "/")
 		dirname := parts[len(parts) - 1]
@@ -212,16 +213,7 @@ create_level :: proc(dirname: string) -> Level {
 			}
 			arena.tilemap = tmap
 			arena.segments = generate_segments(tmap, alloc)
-
-		case "player":
-			assert(len(words) == 3)
-			xf32, okx32 := strconv.parse_f32(words[1])
-			yf32, oky32 := strconv.parse_f32(words[2])
-			if !okx32 || !oky32 {
-				fmt.panicf("failed to parse pspawns")
-			}
-			vec := Vector2{xf32, yf32}
-			append(&pspawns, vec)
+			append(&pspawns, ..extract_spawners(&tmap))
 
 		case "thumb":
 			assert(len(words) == 2)
@@ -539,10 +531,10 @@ ui_main_menu :: proc(game: ^Game) {
 			},
 		},
 		) {
-			if text_button(ID("PlayText"), "Play", 72) {
+			if text_button(ID("PlayText"), "Play", 86) {
 				game.play_state = .MapSel
 			}
-			if text_button(ID("QuitText"), "Quit", 72) {
+			if text_button(ID("QuitText"), "Quit", 86) {
 				game.suicidal = true
 			}
 		}

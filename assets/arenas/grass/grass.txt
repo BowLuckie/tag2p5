@@ -3,8 +3,4 @@ layer: bg3.png 0.6
 layer: bg2.png 1
 layer: bg.png 1.2
 tilemap: pretty.json
-player: 600 400
-player: 800 400
-player: 600 400
-player: 600 400
 thumb: maynard.png
