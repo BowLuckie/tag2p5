@@ -138,6 +138,7 @@ free_game :: proc(game: ^Game) {
 			rl.UnloadTexture(p.triangle_tex)
 		}
 		delete(lvl.players)
+		delete(lvl.springs)
 	}
 
 	delete(game.levels)
@@ -169,7 +170,7 @@ create_level :: proc(dirname: string) -> Level {
 	if errstr != nil {fmt.panicf("allocator error! %v", errstr)}
 
 	layers := make([dynamic]ParallaxLayer, alloc)
-	pspawns := make([dynamic]Vector2, alloc)
+	ospawns: Ospawns
 	thumb: rl.Texture2D
 	title: string
 
@@ -213,7 +214,7 @@ create_level :: proc(dirname: string) -> Level {
 			}
 			arena.tilemap = tmap
 			arena.segments = generate_segments(tmap, alloc)
-			append(&pspawns, ..extract_spawners(&tmap))
+			ospawns = extract_spawners(&tmap)
 
 		case "thumb":
 			assert(len(words) == 2)
@@ -238,6 +239,9 @@ create_level :: proc(dirname: string) -> Level {
 		offset = {GAME_WIDTH / 2, GAME_HEIGHT / 2},
 	}
 
+	pspawns := ospawns.players
+	sspawns := ospawns.springs
+
 	players := make([]Player, len(pspawns))
 	for player_spawn, i in pspawns {
 		pid := i
@@ -258,6 +262,16 @@ create_level :: proc(dirname: string) -> Level {
 		}
 	}
 
+	springs := make([]Spring, len(pspawns))
+	for spring_spawn, i in sspawns {
+		springs[i] = Spring {
+			pos      = spring_spawn,
+			refresh  = SPRING_LFT,
+			collidor = {spring_spawn.x, spring_spawn.y, 16, 16},
+			force    = 650,
+		}
+	}
+
 	delete(arena_conf_path)
 
 	return Level {
@@ -268,6 +282,7 @@ create_level :: proc(dirname: string) -> Level {
 		game_time = GAME_TIME,
 		thumb = thumb,
 		title = title,
+		springs = springs,
 	}
 }
 

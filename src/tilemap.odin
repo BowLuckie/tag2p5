@@ -286,8 +286,9 @@ find_other_end :: proc(seg: Segment, known_end: Vector2) -> (other: Vector2, ok:
 	return {}, false
 }
 
-extract_spawners :: proc(tilemap: ^Tilemap) -> []Vector2 {
+extract_spawners :: proc(tilemap: ^Tilemap) -> Ospawns {
 	pspawns := make([dynamic]Vector2)
+	sspawns := make([dynamic]Vector2)
 
 	for raw, i in tilemap.tiles {
 		row := i / tilemap.width
@@ -301,7 +302,13 @@ extract_spawners :: proc(tilemap: ^Tilemap) -> []Vector2 {
 			append(&pspawns, loc)
 			tilemap.tiles[i] = 0
 		}
+
+		if gid == 16 {
+			loc := Vector2{f32(col * tilemap.tile_width), f32(row * tilemap.tile_height)}
+			append(&sspawns, loc)
+
+		}
 	}
 
-	return pspawns[:]
+	return Ospawns{players = pspawns[:], springs = sspawns[:]}
 }

@@ -132,6 +132,20 @@ update_entity :: proc(game: ^Game, e: ^Player, dt: f32) {
 		e.coyote_time = 0
 	}
 
+	for &spring in game.levels[game.lvl_idx].springs {
+		if aabb_circ(e.center, e.radius, spring.collidor) && spring.refresh < 0 {
+			e.vel.y = -spring.force
+
+			pitch := rand.float32_range(0.8, 1) * 0.8
+			volume := rand.float32_range(1, 1.1) * 2.5
+
+			play_sound(game, .Jump, pitch, volume)
+
+			spring.refresh = SPRING_LFT
+		}
+		spring.refresh -= dt
+	}
+
 	if e.vel.x < 0 {
 		e.orientation = -1
 	} else if e.vel.x > 0 {

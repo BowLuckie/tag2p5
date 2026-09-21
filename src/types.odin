@@ -74,6 +74,7 @@ Level :: struct {
 	arena:     Arena,
 	// players are arena specifc, becuase they might have diffrent spawns
 	players:   []Player,
+	springs:   []Spring,
 	// counts down from `TAG_IMMUNITY` to 0
 	last_tag:  f32,
 	// counts down from `GAME_TIME` to 0
@@ -120,6 +121,14 @@ Player :: struct {
 	pid:          uint,
 	// orientation is now persistant
 	orientation:  f32,
+}
+
+Spring :: struct {
+	pos:       Vector2,
+	refresh:   f32,
+	animation: AnimationObj,
+	collidor:  rl.Rectangle,
+	force:     f32,
 }
 
 // currently not used in game
@@ -196,6 +205,11 @@ Tilemap :: struct {
 	first_gid:     int,
 	columns:       int,
 	collide_data:  map[u32][]f64,
+}
+
+Ospawns :: struct {
+	players: []Vector2,
+	springs: []Vector2,
 }
 
 MusicPlayer :: struct {

@@ -11,7 +11,8 @@ import rl "vendor:raylib"
 
 log_debug :: proc(args: ..any, sep := " ", flush := true) -> int {
 	bytes_written := 0
-	bytes_written += fmt.fprint(os.stderr, "\x1b[36m[DEBUG] ")
+
+	bytes_written += fmt.fprint(os.stderr, "\x1b[3m[DEBUG] ")
 	bytes_written += fmt.fprint(os.stderr, ..args, sep = sep)
 	bytes_written += fmt.fprintln(os.stderr, "\x1b[0m", flush = flush)
 
