@@ -2,6 +2,7 @@ package tag2p5
 
 import "core:math"
 import "core:math/linalg"
+import "core:math/rand"
 import rl "vendor:raylib"
 
 p1_movement :: proc(self: ^Player, game: ^Game) -> (dir: f32, jump: bool) {
@@ -122,6 +123,10 @@ update_entity :: proc(game: ^Game, e: ^Player, dt: f32) {
 	e.coyote_time -= dt
 
 	if jump && e.coyote_time > 0 {
+		pitch := rand.float32_range(0.8, 1.2)
+		volume := rand.float32_range(1, 1.1) * 2
+
+		play_sound(game, .Jump, pitch, volume)
 		e.vel.y = -JUMP_VEL
 		e.grounded = false
 		e.coyote_time = 0

@@ -27,6 +27,10 @@ Fonts :: enum {
 	TheOneFont = 0, // there is a good chance this stays like this forever
 }
 
+SoundEffect :: enum {
+	Jump,
+}
+
 Segment :: struct {
 	a, b:  Vector2,
 	bound: Aabb,
@@ -35,12 +39,6 @@ Segment :: struct {
 Game :: struct {
 	// currently this always sits at `.Normal` maybe one day i will add more gamemodes
 	mode:                GameMode,
-
-	// the current screen that is focused, eg `.Paused` `.MainMenu`
-	play_state:          GameState,
-	clay_memory:         []u8,
-	assets:              GuiAssets,
-	font:                [Fonts]rl.Font,
 
 	// should the game close its self at the end of this frame
 	suicidal:            bool,
@@ -56,6 +54,16 @@ Game :: struct {
 
 	// the texture the game is drawn to
 	target:              rl.RenderTexture2D,
+
+	// the current screen that is focused, eg `.Paused` `.MainMenu`
+	play_state:          GameState,
+
+	// memory storage feilds
+	clay_memory:         []u8,
+	uiel_idx:            int,
+	assets:              GuiAssets,
+	font:                [Fonts]rl.Font,
+	sounds:              map[SoundEffect]rl.Sound,
 }
 
 Level :: struct {
@@ -91,6 +99,7 @@ GuiAssets :: struct {
 	restart_button_tex: Texture2D,
 	menu_button_tex:    Texture2D,
 	cursor_tex:         Texture2D,
+	menu_bg_tex:        Texture2D,
 }
 
 
@@ -187,4 +196,9 @@ Tilemap :: struct {
 	first_gid:     int,
 	columns:       int,
 	collide_data:  map[u32][]f64,
+}
+
+MusicPlayer :: struct {
+	music:  rl.Music,
+	volume: f32,
 }

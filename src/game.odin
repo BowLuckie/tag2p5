@@ -12,7 +12,7 @@ import "core:strings"
 import "renderer"
 import rl "vendor:raylib"
 
-new_game :: proc(lvl_idx: int) -> Game {
+new_game :: proc(lvl_idx: int = 0) -> Game {
 	levels := make([dynamic]Level)
 	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + "arenas")
 	for path in arenas_dir.paths[:arenas_dir.count] {
@@ -21,15 +21,24 @@ new_game :: proc(lvl_idx: int) -> Game {
 		append(&levels, create_level(dirname))
 		delete(parts)
 	}
+
 	return create_game(levels[:], lvl_idx)
 }
 
-restart_game :: proc(game: ^Game, idx: int) {
+reload_game :: proc(game: ^Game, idx: int) {
 	lvl_idx := idx
 	free_game(game)
 	game^ = new_game(lvl_idx)
 	game.play_state = .Playing
 }
+
+restart_game :: proc(game: ^Game) {
+	idx := game.pending_restart_idx
+	reload_game(game, idx)
+	game.play_state = .Playing
+	game.pending_restart_idx = -1
+}
+
 
 update_game :: proc(game: ^Game, dt: f32) {
 	if game.play_state != .Playing {return}
@@ -106,16 +115,12 @@ update_camera :: proc(
 		}
 	}
 
-	// Side walls: hard bound on both edges.
 	if arena_w <= 2 * half_view_w {
 		gc.target.x = arena_w / 2
 	} else {
 		gc.target.x = clamp(gc.target.x, half_view_w, arena_w - half_view_w)
 	}
 
-	// Floor: hard bound on the bottom only. No lower clamp on target.y,
-	// so the camera is free to pan above the arena top when needed to
-	// keep a player in view.
 	gc.target.y = min(gc.target.y, arena_h - half_view_h)
 
 	gc.offset = {screen_w / 2, screen_h / 2}
@@ -136,6 +141,11 @@ free_game :: proc(game: ^Game) {
 
 	delete(game.levels)
 	rl.UnloadRenderTexture(game.target)
+
+	for _, sound in game.sounds {
+		rl.UnloadSound(sound)
+	}
+	delete(game.sounds)
 }
 
 @(private = "file")
@@ -283,6 +293,7 @@ create_game :: proc(levels: []Level, lvl_idx: int, game_time: f32 = GAME_TIME) -
 	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
 	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
 	cursor_tex := rl.LoadTexture(ASSET_DIR + "cursor.png")
+	main_menu_tex := rl.LoadTexture(ASSET_DIR + "bgmenu.png")
 
 	assets := GuiAssets {
 		play_button_tex    = play_tex,
@@ -291,16 +302,22 @@ create_game :: proc(levels: []Level, lvl_idx: int, game_time: f32 = GAME_TIME) -
 		menu_button_tex    = mm_tex,
 		restart_button_tex = restart_tex,
 		cursor_tex         = cursor_tex,
+		menu_bg_tex        = main_menu_tex,
 	}
 
 	game := Game {
+		mode                = .Normal,
 		play_state          = .MainMenu,
 		levels              = levels,
 		assets              = assets,
 		target              = rl.LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT),
 		lvl_idx             = lvl_idx,
 		pending_restart_idx = -1,
+		uiel_idx            = 0,
+		suicidal            = false,
 	}
+
+	game.sounds[.Jump] = rl.LoadSound(ASSET_DIR + "boing.ogg")
 
 	return game
 }
@@ -322,9 +339,9 @@ get_maps_json :: proc() -> []string {
 
 @(private = "file")
 draw_entity :: proc(e: Player) {
-	sign: f32 = math.sign(e.orientation + 0.002)
 	// this is to make sure sign isnt 0, becuase
 	// e.orientation is unlikley to ever be -0.002
+	sign: f32 = math.sign(e.orientation + 0.002)
 
 	rl.DrawTexturePro(
 		e.tex,
@@ -482,13 +499,13 @@ ui_main_menu :: proc(game: ^Game) {
 			layoutDirection = .TopToBottom,
 			childAlignment = {x = .Center, y = .Top},
 		},
-		backgroundColor = clay.Color{20, 20, 30, 255},
+		image = clay.ImageElementConfig{imageData = &game.assets.menu_bg_tex},
 	},
 	) {
 		if UI(ID("menu_title_section"))(
 		clay.ElementDeclaration {
 			layout = clay.LayoutConfig {
-				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.5)},
+				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.4)},
 				childAlignment = {x = .Center, y = .Center},
 			},
 		},
@@ -498,48 +515,57 @@ ui_main_menu :: proc(game: ^Game) {
 				clay.TextElementConfig {
 					fontId = 0,
 					fontSize = 96 * 2,
-					textColor = clay.Color{255, 255, 255, 255},
+					textColor = clay.Color{34, 32, 52, 255},
 				},
 			)
 		}
 
-		if UI(ID("menu_buttons_section"))(
+		if UI(ID("menu_middle_spacer"))(
 		clay.ElementDeclaration {
 			layout = clay.LayoutConfig {
-				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.25)},
-				childAlignment = {x = .Center, y = .Center},
-			},
-		},
-		) {
-			if UI(ID("menu_buttons"))(
-			clay.ElementDeclaration {
-				layout = clay.LayoutConfig {
-					layoutDirection = .TopToBottom,
-					childAlignment = {x = .Center, y = .Center},
-					childGap = 48,
-				},
-			},
-			) {
-				if image_button(ID("PlayButton"), &game.assets.play_button_tex, 600, 120) {
-					game.play_state = .MapSel
-				}
-				if image_button(ID("PlaceholderButton"), &game.assets.quit_button_tex, 600, 120) {
-					// TODO: settings or credits or something
-				}
-				if image_button(ID("QuitButton"), &game.assets.quit_button_tex, 600, 120) {
-					game.suicidal = true
-				}
-			}
-		}
-
-		if UI(ID("menu_bottom_spacer"))(
-		clay.ElementDeclaration {
-			layout = {
-				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingPercent(0.25)},
+				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
 			},
 		},
 		) {}
+
+		if UI(ID("menu_bottom_stack"))(
+		clay.ElementDeclaration {
+			layout = clay.LayoutConfig {
+				sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingFixed(220)},
+				layoutDirection = .TopToBottom,
+				childAlignment = {x = .Right, y = .Bottom},
+				padding = {right = 48, top = 0, bottom = 24, left = 0},
+				childGap = 16,
+			},
+		},
+		) {
+			if text_button(ID("PlayText"), "Play", 72) {
+				game.play_state = .MapSel
+			}
+			if text_button(ID("QuitText"), "Quit", 72) {
+				game.suicidal = true
+			}
+		}
 	}
+}
+
+@(private = "file")
+text_button :: proc(id: clay.ElementId, label: string, font_size: u16) -> bool {
+	clicked := false
+	if UI(id)(clay.ElementDeclaration{layout = clay.LayoutConfig{padding = {8, 8, 8, 8}}}) {
+		clay.Text(
+			label,
+			clay.TextElementConfig {
+				fontId = 0,
+				fontSize = font_size,
+				textColor = clay.Color{34, 32, 52, 255},
+			},
+		)
+		if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
+			clicked = true
+		}
+	}
+	return clicked
 }
 
 @(private = "file")
@@ -624,7 +650,7 @@ ui_map_select :: proc(game: ^Game) {
 					},
 					) {
 						if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
-							// restart_game(game)
+							// reload_game(game)
 							// game.lvl_idx = i
 							// game.play_state = .Playing
 							game.pending_restart_idx = i
@@ -755,7 +781,7 @@ ui_pause_menu :: proc(game: ^Game) {
 				260 * 1.5,
 				60 * 1.5,
 			) {
-				restart_game(game, game.lvl_idx)
+				reload_game(game, game.lvl_idx)
 			}
 
 			if image_button(ID("quit_button"), &game.assets.quit_button_tex, 260 * 1.5, 60 * 1.5) {
@@ -791,7 +817,7 @@ ui_game_over :: proc(game: ^Game) {
 		},
 		) {
 			clay.Text(
-				"game over!",
+				"Game Over!",
 				clay.TextElementConfig {
 					fontId = 0,
 					fontSize = 144,
@@ -805,7 +831,7 @@ ui_game_over :: proc(game: ^Game) {
 				260 * 1.5,
 				60 * 1.5,
 			) {
-				restart_game(game, game.lvl_idx)
+				reload_game(game, game.lvl_idx)
 			}
 
 			if image_button(
@@ -876,7 +902,7 @@ animation_rect :: proc(animation_obj: AnimationObj) -> rl.Rectangle {
 handle_keypresses :: proc(game: ^Game) {
 	if rl.IsKeyPressed(.ESCAPE) {
 		on_esc(game)
-	} else if rl.IsKeyPressed(.ENTER) {
+	} else if rl.IsKeyPressed(.ENTER) || rl.IsKeyPressed(.SPACE) {
 		on_enter(game)
 	}
 }
@@ -908,9 +934,43 @@ on_enter :: proc(game: ^Game) {
 		game.play_state = .Playing
 
 	case .GameOver:
-		restart_game(game, game.lvl_idx)
+		reload_game(game, game.lvl_idx)
 
 	case:
 		break
 	}
+}
+
+create_music_player :: proc(path: cstring) -> MusicPlayer {
+	rl.InitAudioDevice()
+
+	music := rl.LoadMusicStream(path)
+	rl.PlayMusicStream(music)
+
+	return MusicPlayer{music = music}
+}
+
+update_music :: proc(player: ^MusicPlayer, dt: f32) {
+	player.volume += dt / 3.0
+	player.volume = min(player.volume, 1.0)
+
+	rl.SetMusicVolume(player.music, player.volume)
+	rl.UpdateMusicStream(player.music)
+}
+
+free_mplayer :: proc(player: MusicPlayer) {
+	rl.UnloadMusicStream(player.music)
+	rl.CloseAudioDevice()
+}
+
+new_mplayer :: proc() -> MusicPlayer {
+	return create_music_player(ASSET_DIR + "menubossa.ogg")
+}
+
+play_sound :: proc(game: ^Game, effect: SoundEffect, pitch, volume: f32) {
+	sound := game.sounds[effect]
+
+	rl.SetSoundPitch(sound, pitch)
+	rl.SetSoundVolume(sound, volume)
+	rl.PlaySound(sound)
 }

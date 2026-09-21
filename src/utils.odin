@@ -97,6 +97,7 @@ init_raylib :: proc() {
 	rl.SetWindowMinSize(GAME_WIDTH * 0.1, GAME_HEIGHT * 0.1)
 	rl.SetTargetFPS(60)
 	rl.HideCursor()
+
 	append(
 		&renderer.raylib_fonts,
 		renderer.Raylib_Font {
