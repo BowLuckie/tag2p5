@@ -142,7 +142,16 @@ update_entity :: proc(game: ^Game, e: ^Player, dt: f32) {
 			play_sound(game, .Jump, pitch, volume)
 
 			spring.refresh = SPRING_LFT
+
+			spring.animation.frame = 1
 		}
+
+		if spring.animation.frame > 0 {
+			update_animation(&spring.animation, dt)
+		}
+
+		update_animation(&spring.animation, 0)
+
 		spring.refresh -= dt
 	}
 

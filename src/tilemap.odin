@@ -306,7 +306,7 @@ extract_spawners :: proc(tilemap: ^Tilemap) -> Ospawns {
 		if gid == 16 {
 			loc := Vector2{f32(col * tilemap.tile_width), f32(row * tilemap.tile_height)}
 			append(&sspawns, loc)
-
+			tilemap.tiles[i] = 0
 		}
 	}
 

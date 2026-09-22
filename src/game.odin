@@ -262,13 +262,24 @@ create_level :: proc(dirname: string) -> Level {
 		}
 	}
 
-	springs := make([]Spring, len(pspawns))
+	springs := make([]Spring, len(sspawns))
+	spring_tex := rl.LoadTexture(ASSET_DIR + "spring.png")
 	for spring_spawn, i in sspawns {
+		spring_anim := AnimationObj {
+			frame_duration = 0.14,
+			tile_count     = 4,
+			columns        = 4,
+			tile_w         = 16,
+			tile_h         = 16,
+			tilesheet      = spring_tex,
+		}
+
 		springs[i] = Spring {
-			pos      = spring_spawn,
-			refresh  = SPRING_LFT,
-			collidor = {spring_spawn.x, spring_spawn.y, 16, 16},
-			force    = 650,
+			pos       = spring_spawn,
+			refresh   = SPRING_LFT,
+			collidor  = {spring_spawn.x, spring_spawn.y, 16, 16},
+			force     = 650,
+			animation = spring_anim,
 		}
 	}
 
@@ -364,6 +375,11 @@ draw_entity :: proc(e: Player) {
 	}
 }
 
+draw_spring :: proc(e: ^Spring) {
+	anim_rect := animation_rect(e.animation)
+	rl.DrawTexturePro(e.animation.tilesheet, anim_rect, e.collidor, {0, 0}, 0, rl.WHITE)
+}
+
 @(private = "file")
 draw_triangle :: proc(e: Player) {
 	rl.DrawTexture(
@@ -405,9 +421,14 @@ render_game :: proc(
 		// draw_segs(game.levels[game.lvl_idx].arena.segments)
 		draw_tilemap(game.levels[game.lvl_idx].arena.tilemap)
 
-		for &player in game.levels[game.lvl_idx].players {
+		for player in game.levels[game.lvl_idx].players {
 			draw_entity(player)
 		}
+
+		for &spring in game.levels[game.lvl_idx].springs {
+			draw_spring(&spring)
+		}
+
 		rl.EndMode2D()
 	}
 

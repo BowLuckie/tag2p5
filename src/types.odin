@@ -67,8 +67,7 @@ Game :: struct {
 }
 
 Level :: struct {
-	// the game camera. objects are places in absolute positions and the camera does
-	// the rest of the work
+	// the game camera. objects are places in absolute positions and the camera does the rest of the work
 	gc:        rl.Camera2D,
 	// information about the way this level looks and its collision
 	arena:     Arena,
@@ -131,7 +130,6 @@ Spring :: struct {
 	force:     f32,
 }
 
-// currently not used in game
 AnimationObj :: struct {
 	frame:          uint,
 	frame_time:     f32,
