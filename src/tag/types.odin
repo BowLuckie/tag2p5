@@ -1,6 +1,6 @@
 package tag2p5
 
-import clay "clay-odin"
+import clay "../clay-odin"
 import "core:mem"
 import rl "vendor:raylib"
 
@@ -61,7 +61,7 @@ Game :: struct {
 	// memory storage feilds
 	clay_memory:         []u8,
 	uiel_idx:            int,
-	assets:              GuiAssets,
+	assets:              GameAssets,
 	font:                [Fonts]rl.Font,
 	sounds:              map[SoundEffect]rl.Sound,
 }
@@ -92,7 +92,7 @@ Arena :: struct {
 	memarena:  mem.Arena,
 }
 
-GuiAssets :: struct {
+GameAssets :: struct {
 	play_button_tex:    Texture2D,
 	quit_button_tex:    Texture2D,
 	pause_button_tex:   Texture2D,

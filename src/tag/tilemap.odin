@@ -31,7 +31,7 @@ load_tilemap :: proc(
 
 	layer := tmap.layers[0]
 
-	img_path := fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, tmap.tilesets[0].image)
+	img_path := fmt.ctprintf("%s%s%s/%s", ASSET_DIR, ARENAS_DIR, dirname, tmap.tilesets[0].image)
 	tileset_tex := rl.LoadTexture(img_path)
 
 	collide_data := make(map[u32][]f64, allocator)

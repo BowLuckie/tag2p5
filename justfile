@@ -3,7 +3,7 @@ default: build
 
 build:
     mkdir -p build
-    odin build src -debug -out:build/main
+    odin build src/tag -debug -out:build/main
 
 gdb: build
     gdb ./build/main

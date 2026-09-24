@@ -1,12 +1,12 @@
 package tag2p5
 
+import clay "../clay-odin"
+import "../renderer"
 import "base:runtime"
-import clay "clay-odin"
 import "core:fmt"
 import "core:mem"
 import "core:os"
 import "core:slice"
-import "renderer"
 import rl "vendor:raylib"
 
 log_debug :: proc(args: ..any, sep := " ", flush := true) -> int {
@@ -103,7 +103,7 @@ init_raylib :: proc() {
 		&renderer.raylib_fonts,
 		renderer.Raylib_Font {
 			fontId = u16(Fonts.TheOneFont),
-			font = rl.LoadFontEx("./assets/PeaberryBase.ttf", 96, nil, 0),
+			font = rl.LoadFontEx(ASSET_DIR + UI_DIR + "PeaberryBase.ttf", 96, nil, 0),
 		},
 	)
 }

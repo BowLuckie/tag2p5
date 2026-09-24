@@ -2,7 +2,12 @@ package tag2p5
 
 import rl "vendor:raylib"
 
-ASSET_DIR :: #config(ASSET_DIR, "./assets/")
+ASSET_DIR :: "./assets/"
+ARENAS_DIR :: "arenas/"
+ENTITY_DIR :: "e/"
+GAME_DIR :: "game/"
+MUSIC_DIR :: "music/"
+UI_DIR :: "ui/"
 
 // the arena converts a web of thousands of allocations into a single onwed object
 // so here is where we store them so we can free them all at once.

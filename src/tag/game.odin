@@ -1,6 +1,7 @@
 package tag2p5
 
-import clay "clay-odin"
+import clay "../clay-odin"
+import "../renderer"
 import "core:c"
 import "core:fmt"
 import "core:math"
@@ -9,12 +10,11 @@ import "core:mem"
 import "core:os"
 import "core:strconv"
 import "core:strings"
-import "renderer"
 import rl "vendor:raylib"
 
 new_game :: proc(lvl_idx: int = 0) -> Game {
 	levels := make([dynamic]Level)
-	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + "arenas")
+	arenas_dir := rl.LoadDirectoryFiles(ASSET_DIR + ARENAS_DIR)
 
 	for path in arenas_dir.paths[:arenas_dir.count] {
 		parts := strings.split(string(path), "/")
@@ -152,7 +152,7 @@ free_game :: proc(game: ^Game) {
 
 @(private = "file")
 create_level :: proc(dirname: string) -> Level {
-	arena_conf_path := fmt.aprintf("%sarenas/%s/%s.txt", ASSET_DIR, dirname, dirname)
+	arena_conf_path := fmt.aprintf("%s%s%s/%s.txt", ASSET_DIR, ARENAS_DIR, dirname, dirname)
 	arena_buf := make([]u8, ARENA_BUF_SIZE)
 	a: mem.Arena
 	mem.arena_init(&a, arena_buf)
@@ -174,7 +174,7 @@ create_level :: proc(dirname: string) -> Level {
 	thumb: rl.Texture2D
 	title: string
 
-	filler_tex := rl.LoadTexture(ASSET_DIR + "filler.png")
+	filler_tex := rl.LoadTexture(ASSET_DIR + GAME_DIR + "filler.png")
 
 	for line in lines {
 		words := strings.fields(line)
@@ -196,7 +196,7 @@ create_level :: proc(dirname: string) -> Level {
 				&layers,
 				ParallaxLayer {
 					tex = rl.LoadTexture(
-						fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, words[1]),
+						fmt.ctprintf("%s%s%s/%s", ASSET_DIR, ARENAS_DIR, dirname, words[1]),
 					),
 					factor = val32,
 				},
@@ -205,7 +205,7 @@ create_level :: proc(dirname: string) -> Level {
 		case "tilemap":
 			assert(len(words) == 2)
 			tmap, errt := load_tilemap(
-				fmt.aprintf("%sarenas/%s/%s", ASSET_DIR, dirname, words[1]),
+				fmt.aprintf("%s%s%s/%s", ASSET_DIR, ARENAS_DIR, dirname, words[1]),
 				dirname,
 				alloc,
 			)
@@ -218,7 +218,7 @@ create_level :: proc(dirname: string) -> Level {
 
 		case "thumb":
 			assert(len(words) == 2)
-			thumbpth := fmt.ctprintf("%sarenas/%s/%s", ASSET_DIR, dirname, words[1])
+			thumbpth := fmt.ctprintf("%s%s%s/%s", ASSET_DIR, ARENAS_DIR, dirname, words[1])
 			thumb = rl.LoadTexture(thumbpth)
 
 		case:
@@ -245,8 +245,8 @@ create_level :: proc(dirname: string) -> Level {
 	players := make([]Player, len(pspawns))
 	for player_spawn, i in pspawns {
 		pid := i
-		ptex := rl.LoadTexture(fmt.ctprintf("%splayer_%d.png", ASSET_DIR, pid))
-		ttex := rl.LoadTexture(fmt.ctprintf("%striangle_%d.png", ASSET_DIR, pid))
+		ptex := rl.LoadTexture(fmt.ctprintf("%s%splayer_%d.png", ASSET_DIR, ENTITY_DIR, pid))
+		ttex := rl.LoadTexture(fmt.ctprintf("%s%striangle_%d.png", ASSET_DIR, ENTITY_DIR, pid))
 
 		players[i] = Player {
 			center       = player_spawn,
@@ -263,7 +263,7 @@ create_level :: proc(dirname: string) -> Level {
 	}
 
 	springs := make([]Spring, len(sspawns))
-	spring_tex := rl.LoadTexture(ASSET_DIR + "spring.png")
+	spring_tex := rl.LoadTexture(ASSET_DIR + ENTITY_DIR + "spring.png")
 	for spring_spawn, i in sspawns {
 		spring_anim := AnimationObj {
 			frame_duration = 0.14,
@@ -306,21 +306,21 @@ free_arena :: proc(arena: ^Arena) {
 }
 
 create_game :: proc(levels: []Level, lvl_idx: int, game_time: f32 = GAME_TIME) -> Game {
-	restart_tex := rl.LoadTexture(ASSET_DIR + "restart.png")
-	play_tex := rl.LoadTexture(ASSET_DIR + "play.png")
-	pause_tex := rl.LoadTexture(ASSET_DIR + "pause.png")
-	mm_tex := rl.LoadTexture(ASSET_DIR + "menu.png")
-	cursor_tex := rl.LoadTexture(ASSET_DIR + "cursor.png")
-	main_menu_tex := rl.LoadTexture(ASSET_DIR + "bgmenu.png")
+	restart_tex := rl.LoadTexture(ASSET_DIR + UI_DIR + "restart.png")
+	play_tex := rl.LoadTexture(ASSET_DIR + UI_DIR + "play.png")
+	pause_tex := rl.LoadTexture(ASSET_DIR + UI_DIR + "pause.png")
+	mm_tex := rl.LoadTexture(ASSET_DIR + UI_DIR + "menu.png")
+	main_menu_tex := rl.LoadTexture(ASSET_DIR + GAME_DIR + "bgmenu.png")
+	cursor_tex := rl.LoadTexture(ASSET_DIR + GAME_DIR + "cursor.png")
 
-	assets := GuiAssets {
+	assets := GameAssets {
 		play_button_tex    = play_tex,
 		quit_button_tex    = mm_tex,
 		pause_button_tex   = pause_tex,
 		menu_button_tex    = mm_tex,
 		restart_button_tex = restart_tex,
-		cursor_tex         = cursor_tex,
 		menu_bg_tex        = main_menu_tex,
+		cursor_tex         = cursor_tex,
 	}
 
 	game := Game {
@@ -335,7 +335,7 @@ create_game :: proc(levels: []Level, lvl_idx: int, game_time: f32 = GAME_TIME) -
 		suicidal            = false,
 	}
 
-	game.sounds[.Jump] = rl.LoadSound(ASSET_DIR + "boing.ogg")
+	game.sounds[.Jump] = rl.LoadSound(ASSET_DIR + MUSIC_DIR + "boing.ogg")
 
 	return game
 }
@@ -992,7 +992,7 @@ free_mplayer :: proc(player: MusicPlayer) {
 }
 
 new_mplayer :: proc() -> MusicPlayer {
-	return create_music_player(ASSET_DIR + "menubossa.ogg")
+	return create_music_player(ASSET_DIR + MUSIC_DIR + "menubossa.ogg")
 }
 
 play_sound :: proc(game: ^Game, effect: SoundEffect, pitch, volume: f32) {
