@@ -773,6 +773,12 @@ ui_pause_menu :: proc(game: ^Game) {
 			attachment = {element = .LeftTop, parent = .LeftTop},
 			zIndex = 900,
 		},
+		transition = clay.TransitionElementConfig {
+			handler = clay.EaseOut,
+			duration = 0.5,
+			properties = {.BackgroundColor},
+            enter = {setInitialState}
+		},
 	},
 	) {
 		if UI(ID("pause_root"))(
