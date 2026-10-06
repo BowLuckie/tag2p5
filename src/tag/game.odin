@@ -497,6 +497,26 @@ draw_text :: proc(
 	rl.DrawText(text, PosX - text_width / 2, PosY - i32(font_size) / 2, i32(font_size), color)
 }
 
+@(private = "file")
+fade_in_from_transparent :: proc "c" (
+	target: clay.TransitionData,
+	properties: bit_set[clay.TransitionProperty;i32],
+) -> clay.TransitionData {
+	state := target
+	state.backgroundColor.a = 0
+	return state
+}
+
+@(private = "file")
+fade_out_to_transparent :: proc "c" (
+	initial: clay.TransitionData,
+	properties: bit_set[clay.TransitionProperty;i32],
+) -> clay.TransitionData {
+	state := initial
+	state.backgroundColor.a = 0
+	return state
+}
+
 build_ui :: proc(game: ^Game, dt: f32) -> clay.ClayArray(clay.RenderCommand) {
 	clay.BeginLayout()
 	// clay.SetDebugModeEnabled(true)
@@ -775,9 +795,10 @@ ui_pause_menu :: proc(game: ^Game) {
 		},
 		transition = clay.TransitionElementConfig {
 			handler = clay.EaseOut,
-			duration = 0.5,
+			duration = 0.25,
 			properties = {.BackgroundColor},
-            enter = {setInitialState}
+			enter = {setInitialState = fade_in_from_transparent},
+			exit = {setFinalState = fade_out_to_transparent},
 		},
 	},
 	) {

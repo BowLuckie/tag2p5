@@ -58,6 +58,9 @@ Game :: struct {
 	// the current screen that is focused, eg `.Paused` `.MainMenu`
 	play_state:          GameState,
 
+	// a general purpose timer used for tracking how far we are into an animation between menu states
+	menu_anim_timer:     f32,
+
 	// memory storage feilds
 	clay_memory:         []u8,
 	uiel_idx:            int,
