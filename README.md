@@ -41,10 +41,10 @@ layer: bg3.png 0.6
 layer: bg2.png 1
 layer: bg.png 1.2
 tilemap: pretty.json
-player: 300 400
-player: 400 350
 thumb: maynard.png
 ```
+
+player spawns are determined by the player spawner tile.
 
 | Key | Purpose |
 |-----|---------|
