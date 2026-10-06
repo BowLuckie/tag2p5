@@ -1,7 +1,7 @@
 BIN  := build/main
 SRCS := $(shell find src -name '*.odin')
 
-COLLECTIONS := -collection:renderer=./src/renderer/ -collection:clay=./src/clay-odin/
+COLLECTIONS := -collection:ext=./ext/
 
 .PHONY: default build gdb clean
 
@@ -12,7 +12,7 @@ build: $(BIN)
 
 $(BIN): $(SRCS)
 	mkdir -p build
-	odin build src/tag -debug $(COLLECTIONS) -out:$(BIN)
+	odin build src -debug $(COLLECTIONS) -out:$(BIN)
 
 gdb: build
 	gdb ./$(BIN)

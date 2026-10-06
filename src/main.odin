@@ -1,6 +1,6 @@
 package tag2p5
 
-import "renderer:clay"
+import "ext:renderer"
 import rl "vendor:raylib"
 
 main :: proc() {

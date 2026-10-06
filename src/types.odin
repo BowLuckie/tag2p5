@@ -1,7 +1,7 @@
 package tag2p5
 
-import clay "../clay-odin"
 import "core:mem"
+import clay "ext:clay"
 import rl "vendor:raylib"
 
 Vector2 :: rl.Vector2

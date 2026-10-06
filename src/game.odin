@@ -1,7 +1,5 @@
 package tag2p5
 
-import clay "../clay-odin"
-import "../renderer"
 import "core:c"
 import "core:fmt"
 import "core:math"
@@ -10,6 +8,8 @@ import "core:mem"
 import "core:os"
 import "core:strconv"
 import "core:strings"
+import clay "ext:clay"
+import "ext:renderer"
 import rl "vendor:raylib"
 
 new_game :: proc(lvl_idx: int = 0) -> Game {

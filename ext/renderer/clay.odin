@@ -2,7 +2,7 @@
 
 package renderer
 
-import clay "../clay-odin"
+import clay "ext:clay"
 import "base:runtime"
 import "core:math"
 import "core:strings"

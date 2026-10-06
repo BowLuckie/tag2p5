@@ -1,12 +1,12 @@
 package tag2p5
 
-import clay "../clay-odin"
-import "../renderer"
 import "base:runtime"
 import "core:fmt"
 import "core:mem"
 import "core:os"
 import "core:slice"
+import clay "ext:clay"
+import "ext:renderer"
 import rl "vendor:raylib"
 
 log_debug :: proc(args: ..any, sep := " ", flush := true) -> int {

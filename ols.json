@@ -5,8 +5,7 @@
     "enable_snippets": true,
     
   "collections": [
-    { "name": "renderer", "path": "./src/renderer/" },
-    { "name": "clay", "path": "./src/clay-odin/" }
+    { "name": "ext", "path": "./ext/" },
   ]
 
 }
