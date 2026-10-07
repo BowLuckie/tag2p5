@@ -23,7 +23,9 @@ new_game :: proc(lvl_idx: int = 0) -> Game {
 		delete(parts)
 	}
 
-	return create_game(levels[:], lvl_idx)
+	game := create_game(levels[:], lvl_idx)
+	fade_init(&game)
+	return game
 }
 
 reload_game :: proc(game: ^Game, idx: int) {
@@ -42,6 +44,7 @@ restart_game :: proc(game: ^Game) {
 
 
 update_game :: proc(game: ^Game, dt: f32) {
+	update_deffered(game, dt)
 	if game.play_state != .Playing {return}
 	for &player in game.levels[game.lvl_idx].players {
 		update_entity(game, &player, dt)
@@ -59,6 +62,7 @@ update_game :: proc(game: ^Game, dt: f32) {
 		game.levels[game.lvl_idx].game_time = 0
 		game.play_state = .GameOver
 	}
+
 }
 
 update_camera :: proc(
@@ -153,7 +157,7 @@ free_game :: proc(game: ^Game) {
 @(private = "file")
 create_level :: proc(dirname: string) -> Level {
 	arena_conf_path := fmt.aprintf("%s%s%s/%s.txt", ASSET_DIR, ARENAS_DIR, dirname, dirname)
-	arena_buf := make([]u8, ARENA_BUF_SIZE)
+	arena_buf := make([]Byte, ARENA_BUF_SIZE)
 	a: mem.Arena
 	mem.arena_init(&a, arena_buf)
 	alloc := mem.arena_allocator(&a)
@@ -394,9 +398,9 @@ draw_triangle :: proc(e: Player) {
 draw_segs :: proc(segs: []Segment) {
 	for seg in segs {
 		randomColor := rl.Color {
-			u8(rl.GetRandomValue(0, 255)),
-			u8(rl.GetRandomValue(0, 255)),
-			u8(rl.GetRandomValue(0, 255)),
+			Byte(rl.GetRandomValue(0, 255)),
+			Byte(rl.GetRandomValue(0, 255)),
+			Byte(rl.GetRandomValue(0, 255)),
 			255,
 		}
 		rl.DrawLineEx(seg.a, seg.b, 1, randomColor)
@@ -518,8 +522,9 @@ fade_out_to_transparent :: proc "c" (
 }
 
 build_ui :: proc(game: ^Game, dt: f32) -> clay.ClayArray(clay.RenderCommand) {
+	fade_update(game, dt)
+
 	clay.BeginLayout()
-	// clay.SetDebugModeEnabled(true)
 	switch game.play_state {
 	case .MainMenu:
 		ui_main_menu(game)
@@ -534,8 +539,28 @@ build_ui :: proc(game: ^Game, dt: f32) -> clay.ClayArray(clay.RenderCommand) {
 		ui_hud(game)
 		ui_game_over(game)
 	}
+	ui_black_fade(game)
 
 	return clay.EndLayout(dt)
+}
+
+@(private = "file")
+ui_black_fade :: proc(game: ^Game) {
+	a := fade_black_alpha(game)
+	if a <= 0 do return
+	if UI(ID("black_fade"))(
+	clay.ElementDeclaration {
+		layout = clay.LayoutConfig {
+			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
+		},
+		backgroundColor = clay.Color{0, 0, 0, 255 * a},
+		floating = clay.FloatingElementConfig {
+			attachTo = .Root,
+			attachment = {element = .LeftTop, parent = .LeftTop},
+			zIndex = 1000,
+		},
+	},
+	) {}
 }
 
 @(private = "file")
@@ -782,23 +807,19 @@ ui_hud :: proc(game: ^Game) {
 
 @(private = "file")
 ui_pause_menu :: proc(game: ^Game) {
+	a := fade_overlay_alpha(game)
+	ok := !fade_busy(game)
+
 	if UI(ID("pause_overlay"))(
 	clay.ElementDeclaration {
 		layout = clay.LayoutConfig {
 			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
 		},
-		backgroundColor = clay.Color{0, 0, 0, 160},
+		backgroundColor = clay.Color{0, 0, 0, 160 * a},
 		floating = clay.FloatingElementConfig {
 			attachTo = .Root,
 			attachment = {element = .LeftTop, parent = .LeftTop},
 			zIndex = 900,
-		},
-		transition = clay.TransitionElementConfig {
-			handler = clay.EaseOut,
-			duration = 0.25,
-			properties = {.BackgroundColor},
-			enter = {setInitialState = fade_in_from_transparent},
-			exit = {setFinalState = fade_out_to_transparent},
 		},
 	},
 	) {
@@ -817,30 +838,41 @@ ui_pause_menu :: proc(game: ^Game) {
 				clay.TextElementConfig {
 					fontId = 0,
 					fontSize = 144,
-					textColor = {255, 255, 255, 255},
+					textColor = {255, 255, 255, 255 * a},
 				},
 			)
 
 			if image_button(
-				ID("resume_button"),
-				&game.assets.play_button_tex,
-				260 * 1.5,
-				60 * 1.5,
-			) {
-				game.play_state = .Playing
+				   ID("resume_button"),
+				   &game.assets.play_button_tex,
+				   260 * 1.5,
+				   60 * 1.5,
+				   a,
+			   ) &&
+			   ok {
+				leave_overlay(game, proc(g: ^Game) {g.play_state = .Playing})
 			}
 
 			if image_button(
-				ID("resstart_button"),
-				&game.assets.restart_button_tex,
-				260 * 1.5,
-				60 * 1.5,
-			) {
-				reload_game(game, game.lvl_idx)
+				   ID("resstart_button"),
+				   &game.assets.restart_button_tex,
+				   260 * 1.5,
+				   60 * 1.5,
+				   a,
+			   ) &&
+			   ok {
+				leave_overlay(game, proc(g: ^Game) {reload_game(g, g.lvl_idx)})
 			}
 
-			if image_button(ID("quit_button"), &game.assets.quit_button_tex, 260 * 1.5, 60 * 1.5) {
-				game.play_state = .MainMenu
+			if image_button(
+				   ID("quit_button"),
+				   &game.assets.quit_button_tex,
+				   260 * 1.5,
+				   60 * 1.5,
+				   a,
+			   ) &&
+			   ok {
+				cover_then(game, proc(g: ^Game) {g.play_state = .MainMenu})
 			}
 		}
 	}
@@ -848,12 +880,15 @@ ui_pause_menu :: proc(game: ^Game) {
 
 @(private = "file")
 ui_game_over :: proc(game: ^Game) {
+	a := fade_overlay_alpha(game)
+	ok := !fade_busy(game)
+
 	if UI(ID("gameover_overlay"))(
 	clay.ElementDeclaration {
 		layout = clay.LayoutConfig {
 			sizing = clay.Sizing{width = clay.SizingGrow(), height = clay.SizingGrow()},
 		},
-		backgroundColor = clay.Color{0, 0, 0, 160},
+		backgroundColor = clay.Color{0, 0, 0, 160 * a},
 		floating = clay.FloatingElementConfig {
 			attachTo = .Root,
 			attachment = {element = .LeftTop, parent = .LeftTop},
@@ -876,33 +911,47 @@ ui_game_over :: proc(game: ^Game) {
 				clay.TextElementConfig {
 					fontId = 0,
 					fontSize = 144,
-					textColor = {255, 255, 255, 255},
+					textColor = {255, 255, 255, 255 * a},
 				},
 			)
 
 			if image_button(
-				ID("restart_button"),
-				&game.assets.restart_button_tex,
-				260 * 1.5,
-				60 * 1.5,
-			) {
-				reload_game(game, game.lvl_idx)
+				   ID("restart_button"),
+				   &game.assets.restart_button_tex,
+				   260 * 1.5,
+				   60 * 1.5,
+				   a,
+			   ) &&
+			   ok {
+				leave_overlay(game, proc(g: ^Game) {reload_game(g, g.lvl_idx)})
 			}
 
 			if image_button(
-				ID("main_menu_button"),
-				&game.assets.menu_button_tex,
-				260 * 1.5,
-				60 * 1.5,
-			) {
-				game.play_state = .MainMenu
+				   ID("main_menu_button"),
+				   &game.assets.menu_button_tex,
+				   260 * 1.5,
+				   60 * 1.5,
+				   a,
+			   ) &&
+			   ok {
+				cover_then(game, proc(g: ^Game) {g.play_state = .MainMenu})
 			}
 		}
 	}
 }
 
-image_button :: proc(id: clay.ElementId, tex: ^Texture2D, width, height: f32) -> bool {
+image_button :: proc(
+	id: clay.ElementId,
+	tex: ^Texture2D,
+	width, height: f32,
+	alpha: f32 = 1,
+) -> bool {
 	clicked := false
+
+	tint: clay.Color // zero = unset, renderer falls back to white
+	if alpha < 1 {
+		tint = clay.Color{255, 255, 255, 255 * alpha}
+	}
 
 	if UI(id)(
 	clay.ElementDeclaration {
@@ -913,6 +962,7 @@ image_button :: proc(id: clay.ElementId, tex: ^Texture2D, width, height: f32) ->
 			},
 		},
 		image = clay.ImageElementConfig{imageData = tex},
+		overlayColor = tint,
 	},
 	) {
 		if clay.Hovered() && rl.IsMouseButtonPressed(.LEFT) {
@@ -921,37 +971,6 @@ image_button :: proc(id: clay.ElementId, tex: ^Texture2D, width, height: f32) ->
 	}
 
 	return clicked
-}
-
-update_animation :: proc {
-	update_animation_a,
-	update_animation_e,
-}
-
-update_animation_e :: proc(entity: ^Player, dt: f32) {
-	update_animation(&entity.animation, dt)
-}
-
-update_animation_a :: proc(animation_obj: ^AnimationObj, dt: f32) {
-	animation_obj.frame_time += dt
-
-	if animation_obj.frame_time >= animation_obj.frame_duration {
-		animation_obj.frame_time = 0
-		animation_obj.frame += 1
-	}
-
-	if animation_obj.frame >= animation_obj.tile_count {
-		animation_obj.frame = 0
-	}
-}
-
-animation_rect :: proc(animation_obj: AnimationObj) -> rl.Rectangle {
-	return rl.Rectangle {
-		f32(animation_obj.frame % animation_obj.columns) * animation_obj.tile_w,
-		f32(animation_obj.frame / animation_obj.columns) * animation_obj.tile_h,
-		f32(animation_obj.tile_w),
-		f32(animation_obj.tile_h),
-	}
 }
 
 handle_keypresses :: proc(game: ^Game) {
@@ -1028,4 +1047,28 @@ play_sound :: proc(game: ^Game, effect: SoundEffect, pitch, volume: f32) {
 	rl.SetSoundPitch(sound, pitch)
 	rl.SetSoundVolume(sound, volume)
 	rl.PlaySound(sound)
+}
+
+after :: proc(game: ^Game, delay: Timer, action: proc(game: ^Game)) {
+	if game.deffered != nil do return
+	game.deffered = Deffered {
+		action    = action,
+		remaining = delay,
+	}
+}
+
+busy :: proc(game: ^Game) -> bool {
+	return game.deffered != nil
+}
+
+update_deffered :: proc(game: ^Game, dt: Timer) {
+	d, ok := game.deffered.?
+	if !ok do return
+	d.remaining -= dt
+	if d.remaining > 0 {
+		game.deffered = d
+		return
+	}
+	game.deffered = nil
+	d.action(game)
 }

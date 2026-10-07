@@ -7,6 +7,8 @@ import rl "vendor:raylib"
 Vector2 :: rl.Vector2
 Texture2D :: rl.Texture2D
 Aabb :: rl.Rectangle
+Timer :: f32
+Byte :: u8
 
 ID :: clay.ID
 UI :: clay.UI
@@ -57,12 +59,11 @@ Game :: struct {
 
 	// the current screen that is focused, eg `.Paused` `.MainMenu`
 	play_state:          GameState,
-
-	// a general purpose timer used for tracking how far we are into an animation between menu states
-	menu_anim_timer:     f32,
+	deffered:            Maybe(Deffered),
+	fade:                Fade,
 
 	// memory storage feilds
-	clay_memory:         []u8,
+	clay_memory:         []Byte,
 	uiel_idx:            int,
 	assets:              GameAssets,
 	font:                [Fonts]rl.Font,
@@ -78,9 +79,9 @@ Level :: struct {
 	players:   []Player,
 	springs:   []Spring,
 	// counts down from `TAG_IMMUNITY` to 0
-	last_tag:  f32,
+	last_tag:  Timer,
 	// counts down from `GAME_TIME` to 0
-	game_time: f32,
+	game_time: Timer,
 	thumb:     Texture2D,
 	title:     string,
 }
@@ -91,7 +92,7 @@ Arena :: struct {
 	// rendered in LIFO order
 	bg_layers: []ParallaxLayer,
 	segments:  []Segment,
-	arena_buf: []u8,
+	arena_buf: []Byte,
 	memarena:  mem.Arena,
 }
 
@@ -105,6 +106,10 @@ GameAssets :: struct {
 	menu_bg_tex:        Texture2D,
 }
 
+Deffered :: struct {
+	action:    proc(game: ^Game),
+	remaining: Timer,
+}
 
 Player :: struct {
 	center:       Vector2,
@@ -112,7 +117,7 @@ Player :: struct {
 	radius:       f32,
 	grounded:     bool,
 	// counts down from `COYOTE_TIME` to 0
-	coyote_time:  f32,
+	coyote_time:  Timer,
 	// tagging info is stored in the players, not the game
 	tagged:       bool,
 	animation:    AnimationObj,
@@ -127,7 +132,7 @@ Player :: struct {
 
 Spring :: struct {
 	pos:       Vector2,
-	refresh:   f32,
+	refresh:   Timer,
 	animation: AnimationObj,
 	collidor:  rl.Rectangle,
 	force:     f32,
@@ -135,8 +140,8 @@ Spring :: struct {
 
 AnimationObj :: struct {
 	frame:          uint,
-	frame_time:     f32,
-	frame_duration: f32,
+	frame_time:     Timer,
+	frame_duration: Timer,
 	tile_count:     uint,
 	columns:        uint,
 	tile_w:         f32,

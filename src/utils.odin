@@ -76,7 +76,7 @@ update_clay :: proc(dt: f32) {
 
 create_clay_arena :: proc() -> clay.Arena {
 	min_memory_size := clay.MinMemorySize()
-	clay_memory := make([]u8, min_memory_size)
+	clay_memory := make([]Byte, min_memory_size)
 
 	clay_arena := clay.CreateArenaWithCapacityAndMemory(
 		uint(min_memory_size),
